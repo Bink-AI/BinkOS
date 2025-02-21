@@ -9,6 +9,7 @@
     "swap-four-meme": "ts-node src/swap-example-four-meme.ts",
     "token": "ts-node src/token-example.ts",
     "knowledge": "ts-node src/knowledge-example.ts",
+    "wallet": "ts-node src/wallet-example.ts",
     "build": "tsc"
   },
   "dependencies": {
@@ -22,6 +23,8 @@
     "@binkai/bink-provider": "workspace:*",
     "@binkai/knowledge-plugin": "workspace:*",
     "@binkai/postgres-adapter": "workspace:*",
+    "@binkai/bnb-provider": "workspace:*",
+    "@binkai/wallet-plugin": "workspace:*",
     "@pancakeswap/sdk": "^5.7.7",
     "@langchain/core": "^0.3.32",
     "bip39": "^3.1.0",

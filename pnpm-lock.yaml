@@ -38,6 +38,9 @@ importers:
       '@binkai/birdeye-provider':
         specifier: workspace:*
         version: link:../../packages/providers/birdeye
+      '@binkai/bnb-provider':
+        specifier: workspace:*
+        version: link:../../packages/providers/bnb
       '@binkai/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -62,6 +65,9 @@ importers:
       '@binkai/token-plugin':
         specifier: workspace:*
         version: link:../../packages/plugins/token
+      '@binkai/wallet-plugin':
+        specifier: workspace:*
+        version: link:../../packages/plugins/wallet
       '@langchain/core':
         specifier: ^0.3.32
         version: 0.3.32(openai@4.79.3(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))
@@ -246,6 +252,34 @@ importers:
         specifier: ^5.0.0
         version: 5.7.3
 
+  packages/plugins/wallet:
+    dependencies:
+      '@binkai/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@langchain/core':
+        specifier: ^0.3.32
+        version: 0.3.32(openai@4.79.3(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))
+      zod:
+        specifier: ^3.22.0
+        version: 3.24.1
+    devDependencies:
+      '@types/jest':
+        specifier: ^29.0.0
+        version: 29.5.14
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.17.14
+      jest:
+        specifier: ^29.0.0
+        version: 29.7.0(@types/node@20.17.14)(ts-node@10.9.2(@types/node@20.17.14)(typescript@5.7.3))
+      rimraf:
+        specifier: ^5.0.0
+        version: 5.0.10
+      typescript:
+        specifier: ^5.0.0
+        version: 5.7.3
+
   packages/providers/bink:
     dependencies:
       '@binkai/core':
@@ -283,6 +317,31 @@ importers:
         specifier: ^3.22.4
         version: 3.24.1
     devDependencies:
+      rimraf:
+        specifier: ^5.0.0
+        version: 5.0.10
+      typescript:
+        specifier: ^5.0.0
+        version: 5.7.3
+
+  packages/providers/bnb:
+    dependencies:
+      '@binkai/wallet-plugin':
+        specifier: workspace:*
+        version: link:../../plugins/wallet
+      ethers:
+        specifier: ^6.0.0
+        version: 6.13.5(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+    devDependencies:
+      '@types/jest':
+        specifier: ^29.0.0
+        version: 29.5.14
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.17.14
+      jest:
+        specifier: ^29.0.0
+        version: 29.7.0(@types/node@20.17.14)(ts-node@10.9.2(@types/node@20.17.14)(typescript@5.7.3))
       rimraf:
         specifier: ^5.0.0
         version: 5.0.10
@@ -8645,7 +8704,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.0))
+      retry-axios: 2.6.0(axios@1.7.9)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -10426,7 +10485,7 @@ snapshots:
       onetime: 7.0.0
       signal-exit: 4.1.0
 
-  retry-axios@2.6.0(axios@1.7.9(debug@4.4.0)):
+  retry-axios@2.6.0(axios@1.7.9):
     dependencies:
       axios: 1.7.9(debug@4.4.0)
 
