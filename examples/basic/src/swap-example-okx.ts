@@ -93,14 +93,12 @@ async function main() {
   const swapPlugin = new SwapPlugin();
 
   // Create providers with proper chain IDs
-  // const pancakeswap = new PancakeSwapProvider(provider, ChainId.BSC);
   const okx = new OkxProvider(provider, 56);
 
   // Configure the plugin with supported chains
   await swapPlugin.initialize({
     defaultSlippage: 0.5,
     defaultChain: 'bnb',
-    // providers: [pancakeswap],
     providers: [okx],
     supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
   });
@@ -112,43 +110,26 @@ async function main() {
   console.log('✓ Plugin registered\n');
 
   // Example 1: Swap exact 1 USDT for BNB on BNB Chain
-  console.log('💱 Example 1: Swap with exact input amount on BNB Chain');
+  console.log('💱 Example 1: Buy BINK from BNB');
   const inputResult = await agent.execute({
     input: `
-      Swap 0.001 BNB for USDC on bnb chain with 10 % slippage.
+      Buy 0.001 BNB to BINK on Okx with 10 % slippage on bnb chain.
       Use the following token addresses:
-      BNB: 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
-      USDC: 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d
+      BINK: 0x5fdfaFd107Fc267bD6d6B1C08fcafb8d31394ba1
     `,
   });
   console.log('✓ Swap result (input):', inputResult, '\n');
 
-  const needReview = true;
-
-  if (needReview) {
-    console.log('🔍 Need review:', inputResult, '\n');
-    const approveResult = await agent.execute({
-      input: `I approve the swap.
-      Swap 0.001 BNB for USDC on bnb chain with 10 % slippage.
+  // Example 2: Swap USDT for exact 0.1 BNB on BNB Chain
+  console.log('💱 Example 2: Sell BINK for BNB');
+  const outputResult = await agent.execute({
+    input: `
+      Sell 200 BINK for BNB on Okx with 30% slippage on bnb chain.
       Use the following token addresses:
-      BNB: 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
-      USDC: 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d
-      `,
-    });
-    console.log('✓ Approve result:', approveResult, '\n');
-  }
-
-  // // Example 2: Swap USDT for exact 0.1 BNB on BNB Chain
-  // console.log('💱 Example 2: Swap with exact output amount on BNB Chain');
-  // const outputResult = await agent.execute({
-  //   input: `
-  //     Swap BINK for exactly 0.001 BNB on PancakeSwap with 0.5% slippage on bnb chain.
-  //     Use the following token addresses:
-  //     BINK: 0x5fdfaFd107Fc267bD6d6B1C08fcafb8d31394ba1
-  //     BNB: 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
-  //   `
-  // });
-  // console.log('✓ Swap result (output):', outputResult, '\n');
+      BINK: 0x5fdfaFd107Fc267bD6d6B1C08fcafb8d31394ba1
+    `,
+  });
+  console.log('✓ Swap result (output):', outputResult, '\n');
 
   // Get plugin information
   const registeredPlugin = agent.getPlugin('swap') as SwapPlugin;
