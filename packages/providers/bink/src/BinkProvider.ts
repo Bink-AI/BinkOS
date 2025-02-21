@@ -34,7 +34,7 @@ export class BinkProvider implements IKnowledgeProvider {
           'Content-Type': 'application/json',
         },
       });
-      return { sources: [{ content: response.data }] };
+      return { sources: [{ content: response?.data?.data }] };
     } catch (error: any) {
       console.error('error', error);
       if (axios.isAxiosError(error)) {
