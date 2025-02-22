@@ -1,10 +1,5 @@
 import { ChatOpenAI } from '@langchain/openai';
-import {
-  AgentExecutor,
-  createOpenAIFunctionsAgent,
-  createOpenAIToolsAgent,
-} from 'langchain/agents';
-import { DynamicStructuredTool } from '@langchain/core/tools';
+import { AgentExecutor, createOpenAIToolsAgent } from 'langchain/agents';
 import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { IWallet } from '../wallet/types';
@@ -14,7 +9,6 @@ import { GetWalletAddressTool, ITool } from './tools';
 import { BaseAgent } from './BaseAgent';
 import { IPlugin } from '../plugin/types';
 import { DatabaseAdapter } from '../storage';
-import { UUID } from '../types';
 
 export class Agent extends BaseAgent {
   private model: ChatOpenAI;
@@ -176,7 +170,7 @@ export class Agent extends BaseAgent {
       }
     }
     const history = _history.map((message: any) =>
-      message?.messageType === 'human'
+      message?.message_type === 'human'
         ? new HumanMessage(message?.content)
         : new AIMessage(message?.content),
     );
@@ -186,39 +180,54 @@ export class Agent extends BaseAgent {
         input: commandOrParams,
         chat_history: history,
       });
-      this.db?.createMessage({
-        content: commandOrParams,
-        userId: this.context?.user?.id,
-        messageType: 'human',
-      });
-      this.db?.createMessage({
-        content: result.output,
-        userId: this.context?.user?.id,
-        messageType: 'ai',
-      });
+      (async () => {
+        await this.db?.createMessage({
+          content: commandOrParams,
+          user_id: this.context?.user?.id,
+          message_type: 'human',
+        });
+        await this.db?.createMessage({
+          content: result.output,
+          user_id: this.context?.user?.id,
+          message_type: 'ai',
+        });
+      })()
+        .then(() => {
+          console.log('message persisted successfully');
+        })
+        .catch(error => {
+          console.error('Error persisting message');
+        });
       return result.output;
     } else {
-      const messages: BaseMessage[] = commandOrParams.history ?? [];
       result = await this.executor.invoke({
         input: commandOrParams.input,
         chat_history: history,
       });
-      this.db?.createMessage(
-        {
-          content: commandOrParams.input,
-          userId: this.context?.user?.id,
-          messageType: 'human',
-        },
-        commandOrParams?.threadId,
-      );
-      this.db?.createMessage(
-        {
-          content: result.output,
-          userId: this.context?.user?.id,
-          messageType: 'ai',
-        },
-        commandOrParams?.threadId,
-      );
+      (async () => {
+        await this.db?.createMessage(
+          {
+            content: commandOrParams.input,
+            user_id: this.context?.user?.id,
+            message_type: 'human',
+          },
+          commandOrParams?.threadId,
+        );
+        await this.db?.createMessage(
+          {
+            content: result.output,
+            user_id: this.context?.user?.id,
+            message_type: 'ai',
+          },
+          commandOrParams?.threadId,
+        );
+      })()
+        .then(() => {
+          console.log('message persisted successfully');
+        })
+        .catch(error => {
+          console.error('Error persisting message');
+        });
       return result.output;
     }
   }

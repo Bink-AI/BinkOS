@@ -223,7 +223,7 @@ export class PostgresDatabaseAdapter extends DatabaseAdapter<Pool> {
             user.username || '',
             user.email || '',
             user.address || '',
-            user.avatarUrl || '',
+            user.avatar_url || '',
             JSON.stringify(user.metadata),
           ],
         );
@@ -316,13 +316,13 @@ export class PostgresDatabaseAdapter extends DatabaseAdapter<Pool> {
 
         // Flatten message data into values array
         messages.forEach(message => {
-          if (!message.userId) {
-            throw new Error('userId is required for message creation');
+          if (!message.user_id) {
+            throw new Error('user_id is required for message creation');
           }
           values.push(
             message.content,
-            message.userId,
-            message.messageType,
+            message.user_id,
+            message.message_type,
             JSON.stringify(message.metadata),
             thread_id || null,
           );
@@ -350,8 +350,8 @@ export class PostgresDatabaseAdapter extends DatabaseAdapter<Pool> {
            VALUES ($1, $2, $3, $4, $5)`,
           [
             message.content,
-            message.userId,
-            message.messageType,
+            message.user_id,
+            message.message_type,
             JSON.stringify(message.metadata),
             thread_id || null,
           ],
