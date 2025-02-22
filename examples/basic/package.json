@@ -2,6 +2,10 @@
   "name": "@binkai/example-basic",
   "version": "0.0.1",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Bink-AI/BinkOS"
+  },
   "scripts": {
     "start": "ts-node src/example.ts",
     "swap": "ts-node src/swap-example.ts",

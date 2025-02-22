@@ -1,6 +1,10 @@
 {
   "name": "binkai",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Bink-AI/BinkOS"
+  },
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "clean": "find . -type d -name 'dist' -not -path '*/node_modules/*' -exec rm -rf {} + && find . -name 'tsconfig.tsbuildinfo' -type f -delete",
