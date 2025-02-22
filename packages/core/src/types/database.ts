@@ -17,7 +17,7 @@ export interface UserEntity {
   email?: string;
 
   /** Optional avatar URL */
-  avatarUrl?: string;
+  avatar_url?: string;
 
   address: string;
 }
@@ -25,9 +25,9 @@ export interface UserEntity {
 export interface MessageEntity {
   id?: UUID;
   content: string;
-  messageType?: 'human' | 'ai';
-  userId?: UUID;
-  threadId?: UUID;
+  message_type?: 'human' | 'ai';
+  user_id?: UUID;
+  thread_id?: UUID;
   metadata?: { [key: string]: any };
 }
 
