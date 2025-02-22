@@ -6,5 +6,5 @@
     "composite": true
   },
   "include": ["src/**/*", "src/index.ts"],
-  "references": [{ "path": "../../plugins/swap" }]
+  "references": [{ "path": "../../plugins/bridge" }]
 }

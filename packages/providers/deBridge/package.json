@@ -1,5 +1,5 @@
 {
-  "name": "@binkai/knowledge-plugin",
+  "name": "@binkai/debridge-provider",
   "version": "0.0.18",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,9 +16,12 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
-    "@binkai/core": "workspace:*",
-    "@langchain/core": "^0.3.32",
-    "zod": "^3.22.4"
+    "@binkai/bridge-plugin": "workspace:*",
+    "@solana/web3.js": "^1.98.0",
+    "axios": "^1.7.9",
+    "ethers": "^6.0.0",
+    "graphql-request": "5.0.0",
+    "viem": "1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

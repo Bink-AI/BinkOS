@@ -242,12 +242,13 @@ export class Wallet implements IWallet {
 
       // Try to parse as VersionedTransaction first
       try {
-        const tx = VersionedTransaction.deserialize(Buffer.from(transaction.data, 'base64'));
+        let tx = VersionedTransaction.deserialize(Buffer.from(transaction.data, 'base64'));
+
         // Sign transaction
         tx.sign([this.#solanaKeypair]);
 
         // Send raw transaction
-        const rawTransaction = tx.serialize();
+        const rawTransaction = Buffer.from(tx.serialize());
         const signature = await connection.sendRawTransaction(rawTransaction, {
           skipPreflight: false,
           preflightCommitment: 'confirmed',
@@ -269,6 +270,8 @@ export class Wallet implements IWallet {
           },
         };
       } catch (e) {
+        console.log('🚀 ~ Wallet ~ signAndSendTransactionSolana ~ error:', e);
+
         // If not a VersionedTransaction, try as regular Transaction
         const tx = SolanaTransaction.from(Buffer.from(transaction.data, 'base64'));
 

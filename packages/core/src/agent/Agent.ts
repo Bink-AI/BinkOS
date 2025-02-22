@@ -9,11 +9,12 @@ import { BaseMessage, HumanMessage, AIMessage } from '@langchain/core/messages';
 import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts';
 import { IWallet } from '../wallet/types';
 import { NetworksConfig } from '../network/types';
-import { AgentConfig, AgentExecuteParams, IAgent } from './types';
+import { AgentConfig, AgentContext, AgentExecuteParams, IAgent } from './types';
 import { GetWalletAddressTool, ITool } from './tools';
 import { BaseAgent } from './BaseAgent';
 import { IPlugin } from '../plugin/types';
 import { DatabaseAdapter } from '../storage';
+import { UUID } from '../types';
 
 export class Agent extends BaseAgent {
   private model: ChatOpenAI;
@@ -21,6 +22,7 @@ export class Agent extends BaseAgent {
   private executor!: AgentExecutor;
   private networks: NetworksConfig['networks'];
   private db: DatabaseAdapter<any> | undefined;
+  private context: AgentContext = {};
   private config: AgentConfig;
 
   constructor(config: AgentConfig, wallet: IWallet, networks: NetworksConfig['networks']) {
@@ -35,7 +37,15 @@ export class Agent extends BaseAgent {
     });
 
     this.initializeDefaultTools();
-    this.initializeExecutor();
+  }
+
+  getContext(): AgentContext {
+    return this.context;
+  }
+
+  async initialize() {
+    await this.initializeContext();
+    await this.initializeExecutor();
   }
 
   private initializeDefaultTools(): void {
@@ -105,6 +115,20 @@ export class Agent extends BaseAgent {
     }
   }
 
+  async initializeContext(): Promise<AgentContext> {
+    if (this.db) {
+      const networkNames = Object.keys(this.networks);
+      if (networkNames.length) {
+        const defaultNetwork = networkNames[0];
+        const address = await this.wallet?.getAddress(defaultNetwork);
+        if (!address) throw new Error('Not found wallet address');
+        const user = await this.db.createAndGetUserByAddress({ address });
+        this.context.user = user;
+      }
+    }
+    return this.context;
+  }
+
   private async createExecutor(): Promise<AgentExecutor> {
     const supportedNetworkPrompt = `Available networks include: ${Object.keys(this.networks).join(
       ', ',
@@ -136,63 +160,64 @@ export class Agent extends BaseAgent {
     if (!this.executor) {
       await this.initializeExecutor();
     }
-
-    const networkNames = Object.keys(this.networks);
-    let history: any = [];
-    let user;
-    if (this.db && networkNames.length) {
-      const defaultNetwork = networkNames[0];
-      const address = await this.wallet?.getAddress(defaultNetwork);
-      user = await this.db?.createAndGetUserByAddress({
-        address,
-      });
-      if (user?.id) {
-        const _history = await this.db?.getMessagesByUserId(user?.id);
-        history = _history.map((message: any) =>
-          message?.type === 'human'
-            ? new HumanMessage(message?.content)
-            : new AIMessage(message?.content),
-        );
+    if (!Object.keys(this.context).length) {
+      await this.initializeContext();
+    }
+    let _history: any = [];
+    if (this.db) {
+      if (typeof commandOrParams === 'string') {
+        if (this.context?.user?.id) {
+          _history = await this.db?.getMessagesByUserId(this.context?.user?.id);
+        }
+      } else {
+        if (commandOrParams?.threadId) {
+          _history = await this.db?.getMessagesByThreadId(commandOrParams?.threadId);
+        }
       }
     }
-
+    const history = _history.map((message: any) =>
+      message?.messageType === 'human'
+        ? new HumanMessage(message?.content)
+        : new AIMessage(message?.content),
+    );
+    let result: any;
     if (typeof commandOrParams === 'string') {
-      const result = await this.executor.invoke({
+      result = await this.executor.invoke({
         input: commandOrParams,
         chat_history: history,
       });
       this.db?.createMessage({
         content: commandOrParams,
-        userId: user?.id,
+        userId: this.context?.user?.id,
         messageType: 'human',
       });
       this.db?.createMessage({
         content: result.output,
-        userId: user?.id,
+        userId: this.context?.user?.id,
         messageType: 'ai',
       });
       return result.output;
     } else {
       const messages: BaseMessage[] = commandOrParams.history ?? [];
-      const result = await this.executor.invoke({
+      result = await this.executor.invoke({
         input: commandOrParams.input,
         chat_history: history,
       });
       this.db?.createMessage(
         {
           content: commandOrParams.input,
-          userId: user?.id,
+          userId: this.context?.user?.id,
           messageType: 'human',
         },
-        commandOrParams.threadId,
+        commandOrParams?.threadId,
       );
       this.db?.createMessage(
         {
           content: result.output,
-          userId: user?.id,
+          userId: this.context?.user?.id,
           messageType: 'ai',
         },
-        commandOrParams.threadId,
+        commandOrParams?.threadId,
       );
       return result.output;
     }

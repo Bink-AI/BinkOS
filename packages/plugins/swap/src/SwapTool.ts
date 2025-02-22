@@ -92,12 +92,12 @@ export class SwapTool extends BaseTool {
         .enum(supportedChains as [string, ...string[]])
         .default(this.defaultChain)
         .describe('The blockchain to execute the swap on'),
-      provider: z
-        .enum(providers as [string, ...string[]])
-        .optional()
-        .describe(
-          'The DEX provider to use for the swap. If not specified, the best rate will be found',
-        ),
+      // provider: z
+      //   .enum(providers as [string, ...string[]])
+      //   .optional()
+      //   .describe(
+      //     'The DEX provider to use for the swap. If not specified, the best rate will be found',
+      //   ),
       slippage: z
         .number()
         .optional()
@@ -170,7 +170,7 @@ export class SwapTool extends BaseTool {
             amount,
             amountType,
             chain = this.defaultChain,
-            provider: preferredProvider,
+            // provider: preferredProvider, // DISABLED FOR NOW
             slippage = this.defaultSlippage,
           } = args;
 
@@ -206,6 +206,8 @@ export class SwapTool extends BaseTool {
 
           let selectedProvider: ISwapProvider;
           let quote: SwapQuote;
+
+          let preferredProvider = null; // TODO: Implement preferred provider
 
           if (preferredProvider) {
             selectedProvider = this.registry.getProvider(preferredProvider);

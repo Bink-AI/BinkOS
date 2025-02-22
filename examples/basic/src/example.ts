@@ -5,6 +5,7 @@ import { PancakeSwapProvider } from '@binkai/pancakeswap-provider';
 import { OkxProvider } from '@binkai/okx-provider';
 import { TokenPlugin } from '@binkai/token-plugin';
 import { BirdeyeProvider } from '@binkai/birdeye-provider';
+import { FourMemeProvider } from '@binkai/four-meme-provider';
 
 // Hardcoded RPC URLs for demonstration
 const BNB_RPC = 'https://bsc-dataseed1.binance.org';
@@ -117,11 +118,13 @@ async function main() {
 
   const okx = new OkxProvider(provider, 56);
 
+  const fourMeme = new FourMemeProvider(provider, 56);
+
   // Configure the plugin with supported chains
   await swapPlugin.initialize({
     defaultSlippage: 0.5,
     defaultChain: 'bnb',
-    providers: [okx],
+    providers: [okx, pancakeswap, fourMeme],
     supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
   });
   console.log('✓ Swap plugin initialized\n');
@@ -136,23 +139,19 @@ async function main() {
   console.log('✓ Plugin registered\n');
 
   // Example 1: Buy with exact input amount on BNB Chain
-  console.log(
-    '💱 Example 1: Buy BINK from exactly 0.0001 BNB on PancakeSwap with 0.5% slippage on bnb chain.',
-  );
+  console.log('💱 Example 1: Buy BINK from exactly 0.0001 BNB with 0.5% slippage on bnb chain.');
   const result1 = await agent.execute({
     input: `
-      Buy BINK from exactly 0.0001 BNB on PancakeSwap with 0.5% slippage on bnb chain.
+      Buy BINK from exactly 0.0001 BNB with 0.5% slippage on bnb chain.
     `,
   });
   console.log('✓ Swap result:', result1, '\n');
 
   // Example 2: Sell with exact output amount on BNB Chain
-  console.log(
-    '💱 Example 2: Sell exactly 20 BINK to BNB on PancakeSwap with 0.5% slippage on bnb chain.',
-  );
+  console.log('💱 Example 2: Sell exactly 20 BINK to BNB with 0.5% slippage on bnb chain.');
   const result2 = await agent.execute({
     input: `
-      Sell exactly 20 BINK to BNB on PancakeSwap with 0.5% slippage on bnb chain.
+      Sell exactly 20 BINK to BNB with 0.5% slippage on bnb chain.
     `,
   });
 

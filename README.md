@@ -4,6 +4,50 @@
 
 Bink is a powerful DeFAI (Decentralized Finance + AI) OS built on BNB Chain that seamlessly combines the decentralized financial ecosystem with AI-driven analytics and automation. It provides a robust platform for building and deploying intelligent DeFi applications across multiple networks, with native support for BNB Chain's ecosystem.
 
+## High-Level Overview
+
+### System Architecture
+
+```mermaid
+graph TD
+    A[BinkOS Core] --> B[Plugins]
+    A --> C[Providers]
+    B --> D[Swap Plugin]
+    B --> E[Bridge Plugin]
+    B --> F[Token Plugin]
+    B --> G[Knowledge Plugin]
+    D --> H[DEX Providers]
+    E --> I[Bridge Providers]
+    F --> J[Data Providers]
+    G --> K[Knowledge Providers]
+    H --> L[PancakeSwap]
+    H --> M[OKX DEX]
+    H --> N[FourMeme]
+    I --> O[deBridge]
+    J --> P[Birdeye]
+    K --> Q[Bink Knowledge]
+```
+
+### Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Agent
+    participant Plugin
+    participant Provider
+    participant Network
+
+    User->>Agent: Natural Language Request
+    Agent->>Plugin: Process Request
+    Plugin->>Provider: Execute Operation
+    Provider->>Network: Network Interaction
+    Network->>Provider: Response
+    Provider->>Plugin: Process Response
+    Plugin->>Agent: Format Result
+    Agent->>User: Return Result
+```
+
 ## Why Choose Bink OS?
 
 - 🌐 **Works Everywhere**: Built on BNB Chain with compatibility across major blockchains and L2s

@@ -114,7 +114,10 @@ export class FourMemeProvider implements ISwapProvider {
   async getQuote(params: SwapParams, userAddress: string): Promise<SwapQuote> {
     try {
       // Check if either fromToken or toToken is BNB
-      if (params.fromToken !== CONSTANTS.BNB_ADDRESS && params.toToken !== CONSTANTS.BNB_ADDRESS) {
+      if (
+        params.fromToken.toLowerCase() !== CONSTANTS.BNB_ADDRESS.toLowerCase() &&
+        params.toToken.toLowerCase() !== CONSTANTS.BNB_ADDRESS.toLowerCase()
+      ) {
         throw new Error('One of the tokens must be BNB for FourMeme swaps');
       }
 
@@ -124,18 +127,21 @@ export class FourMemeProvider implements ISwapProvider {
       ]);
 
       const amountIn =
-        params.type === 'input' ? ethers.parseUnits(params.amount, tokenIn.decimals) : undefined;
-
-      const amountOut =
-        params.type === 'input' ? undefined : ethers.parseUnits(params.amount, tokenOut.decimals);
+        params.type === 'input'
+          ? ethers.parseUnits(params.amount, tokenIn.decimals)
+          : ethers.parseUnits(params.amount, tokenOut.decimals);
 
       const needToken =
-        params.type === 'input' && params.fromToken === CONSTANTS.BNB_ADDRESS
-          ? params.toToken
-          : params.fromToken;
+        tokenIn.address.toLowerCase() === CONSTANTS.BNB_ADDRESS.toLowerCase()
+          ? tokenOut.address
+          : tokenIn.address;
 
       // Get token info from contract and convert to proper format
       const rawTokenInfo = await this.factory._tokenInfos(needToken);
+
+      if (Number(rawTokenInfo.status) !== 0) {
+        throw new Error('Token is not launched');
+      }
 
       const tokenInfo = {
         base: rawTokenInfo.base,
@@ -158,7 +164,10 @@ export class FourMemeProvider implements ISwapProvider {
       let estimatedAmount = '0';
       let estimatedCost = '0';
 
-      if (params.type === 'input' && params.fromToken === CONSTANTS.BNB_ADDRESS) {
+      if (
+        params.type === 'input' &&
+        params.fromToken.toLowerCase() === CONSTANTS.BNB_ADDRESS.toLowerCase()
+      ) {
         // Calculate estimated output amount using calcBuyAmount
         const estimatedTokens = await this.factory.calcBuyAmount(tokenInfo, amountIn || 0n);
         estimatedAmount = estimatedTokens.toString();
@@ -174,7 +183,10 @@ export class FourMemeProvider implements ISwapProvider {
         );
         value = amountIn?.toString() || '0';
         estimatedCost = amountIn?.toString() || '0';
-      } else if (params.type === 'input' && params.toToken === CONSTANTS.BNB_ADDRESS) {
+      } else if (
+        params.type === 'input' &&
+        params.toToken.toLowerCase() === CONSTANTS.BNB_ADDRESS.toLowerCase()
+      ) {
         try {
           // For selling tokens, calculate estimated BNB output
           const estimatedBnb = await this.factory.calcSellCost(tokenInfo, amountIn || 0n);
@@ -209,8 +221,8 @@ export class FourMemeProvider implements ISwapProvider {
         fromTokenDecimals: tokenIn.decimals,
         toTokenDecimals: tokenOut.decimals,
         slippage: 10,
-        fromAmount: params.type === 'input' ? amountIn?.toString() || '0' : estimatedCost,
-        toAmount: params.type === 'input' ? estimatedAmount : amountOut?.toString() || '0',
+        fromAmount: ethers.formatUnits(amountIn?.toString() || '0', tokenIn.decimals),
+        toAmount: ethers.formatUnits(estimatedAmount, tokenOut.decimals),
         priceImpact: 0,
         route: ['four-meme'],
         estimatedGas: CONSTANTS.DEFAULT_GAS_LIMIT,

@@ -63,6 +63,8 @@ export abstract class DatabaseAdapter<DB = any> {
 
   abstract getUserById(userId: UUID): Promise<UserEntity | null>;
 
+  abstract getUserByAddress(address: string): Promise<UserEntity | null>;
+
   abstract createMessages(messages: MessageEntity[], threadId?: UUID): Promise<boolean>;
 
   abstract createMessage(message: MessageEntity, threadId?: UUID): Promise<boolean>;
@@ -71,6 +73,13 @@ export abstract class DatabaseAdapter<DB = any> {
 
   abstract getMessagesByUserId(userId: UUID, take?: number): Promise<MessageEntity[]>;
 
+  abstract getMessagesByThreadId(threadId: UUID, take?: number): Promise<MessageEntity[]>;
+
+  abstract createThreadIfNotExists(threadId?: UUID, title?: string): Promise<UUID>;
+
+  abstract clearMessagesByUserId(userId: UUID): Promise<boolean>;
+
+  abstract clearMessagesByThreadId(threadId: UUID): Promise<boolean>;
   //   /**
   //    * Removes a specific room from the database.
   //    * @param roomId The UUID of the room to remove.

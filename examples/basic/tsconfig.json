@@ -10,8 +10,10 @@
     { "path": "../../packages/plugins/swap" },
     { "path": "../../packages/adapters/postgres" },
     { "path": "../../packages/plugins/knowledge" },
+    { "path": "../../packages/plugins/bridge" },
     { "path": "../../packages/providers/pancakeswap" },
-    { "path": "../../packages/providers/bink" }
+    { "path": "../../packages/providers/bink" },
+    { "path": "../../packages/providers/deBridge" }
   ],
   "include": ["src/**/*"]
 }
