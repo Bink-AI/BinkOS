@@ -30,7 +30,6 @@ export class BnbProvider implements IWalletProvider {
 
   async getWalletInfo(address: string, chain: string): Promise<WalletInfo> {
     const nativeBalance = await this.getNativeBalance(address, chain);
-    const tokens = await this.getTokenBalances(address, chain);
 
     // const totalUsdValue = tokens.reduce((sum, token) => {
     //   return sum + (token.usdValue || 0);
@@ -38,8 +37,8 @@ export class BnbProvider implements IWalletProvider {
 
     return {
       address,
-      nativeBalance,
-      tokens,
+      nativeBalance: nativeBalance,
+      tokens: undefined,
       //   totalUsdValue,
     };
   }
@@ -59,10 +58,6 @@ export class BnbProvider implements IWalletProvider {
     // For demo, returning empty array
     // Implement BSCScan API integration for full functionality
     return [];
-  }
-
-  async getTransactionCount(address: string, chain: string): Promise<number> {
-    return await this.provider.getTransactionCount(address);
   }
 
   private async getTokenBalance(

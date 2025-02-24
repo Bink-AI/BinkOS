@@ -2,7 +2,7 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { BaseTool, IToolConfig } from '@binkai/core';
 import { ProviderRegistry } from './ProviderRegistry';
-import { IWalletProvider } from './types';
+import { IWalletProvider, WalletInfo } from './types';
 
 export interface WalletToolConfig extends IToolConfig {
   defaultChain?: string;
@@ -83,27 +83,33 @@ export class GetWalletBalanceTool extends BaseTool {
             throw new Error(`No providers available for chain ${chain}`);
           }
 
-          // Try each provider until we get a result
-          let lastError: Error | undefined;
+          const results: Record<string, WalletInfo> = {};
+          const errors: Record<string, string> = {};
+
+          // Try all providers and collect results
           for (const provider of providers) {
             try {
-              const walletInfo = await provider.getWalletInfo(address, chain);
-              return JSON.stringify({
-                status: 'success',
-                data: walletInfo,
-                provider: provider.getName(),
-                chain,
-              });
+              const data = await provider.getWalletInfo(address, chain);
+              results[provider.getName()] = data;
             } catch (error) {
               console.warn(`Failed to get wallet info from ${provider.getName()}:`, error);
-              lastError = error as Error;
-              continue;
+              errors[provider.getName()] = error instanceof Error ? error.message : String(error);
             }
           }
 
-          throw new Error(
-            `Failed to get wallet information for ${address} on chain ${chain}. Last error: ${lastError?.message}`,
-          );
+          // If no successful results, throw error
+          if (Object.keys(results).length === 0) {
+            throw new Error(
+              `Failed to get wallet information for ${address} on chain ${chain}. Errors: ${JSON.stringify(errors)}`,
+            );
+          }
+
+          return JSON.stringify({
+            status: 'success',
+            data: results,
+            errors,
+            chain,
+          });
         } catch (error) {
           console.error('Wallet info error:', error);
           return JSON.stringify({

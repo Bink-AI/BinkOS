@@ -310,6 +310,9 @@ importers:
       '@binkai/token-plugin':
         specifier: workspace:*
         version: link:../../plugins/token
+      '@binkai/wallet-plugin':
+        specifier: workspace:*
+        version: link:../../plugins/wallet
       axios:
         specifier: ^1.6.7
         version: 1.7.9(debug@4.4.0)

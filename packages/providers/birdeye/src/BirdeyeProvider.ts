@@ -7,13 +7,14 @@ import {
   CHAIN_MAPPING,
   SupportedChain,
 } from './types';
+import { IWalletProvider, WalletInfo } from '@binkai/wallet-plugin';
 
-export class BirdeyeProvider implements ITokenProvider {
+export class BirdeyeProvider implements ITokenProvider, IWalletProvider {
   private readonly baseUrl: string;
   private readonly apiKey?: string;
 
   constructor(config: BirdeyeConfig = {}) {
-    this.baseUrl = config.baseUrl || 'https://public-api.birdeye.so/defi';
+    this.baseUrl = config.baseUrl || 'https://public-api.birdeye.so';
     this.apiKey = config.apiKey;
   }
 
@@ -47,7 +48,7 @@ export class BirdeyeProvider implements ITokenProvider {
   }
 
   private async searchTokensFromApi(query: string, chain: string): Promise<BirdeyeTokenResponse> {
-    const response = await axios.get(`${this.baseUrl}/v3/search`, {
+    const response = await axios.get(`${this.baseUrl}/defi/v3/search`, {
       headers: this.getHeaders(chain),
       params: {
         keyword: query,
@@ -61,7 +62,7 @@ export class BirdeyeProvider implements ITokenProvider {
   }
 
   private async getTokenOverview(address: string, chain: string): Promise<TokenOverviewResponse> {
-    const response = await axios.get(`${this.baseUrl}/token_overview`, {
+    const response = await axios.get(`${this.baseUrl}/defi/token_overview`, {
       headers: this.getHeaders(chain),
       params: {
         address: address,
@@ -165,6 +166,39 @@ export class BirdeyeProvider implements ITokenProvider {
       return response.success;
     } catch {
       return false;
+    }
+  }
+
+  async getWalletInfo(address: string, chain: string): Promise<WalletInfo> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/v1/wallet/token_list`, {
+        headers: this.getHeaders(chain),
+        params: { wallet: address },
+      });
+      if (!response.data.success || !response.data.data.items) {
+        return {
+          address: address,
+          nativeBalance: undefined,
+          tokens: undefined,
+        };
+      }
+      return {
+        address: address,
+        nativeBalance: undefined,
+        tokens: response.data.data.items.map((token: any) => ({
+          address: token.address,
+          symbol: token.symbol,
+          name: token.name,
+          decimals: token.decimals,
+          usdValue: token.priceUsd * token.uiAmount,
+          balance: token.uiAmount,
+        })),
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Birdeye API error: ${error.response?.data?.message || error.message}`);
+      }
+      throw error;
     }
   }
 }

@@ -12,6 +12,9 @@
     },
     {
       "path": "../../plugins/token"
+    },
+    {
+      "path": "../../plugins/wallet"
     }
   ]
 }
