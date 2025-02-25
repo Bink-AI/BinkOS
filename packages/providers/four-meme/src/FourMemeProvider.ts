@@ -69,12 +69,12 @@ export class FourMemeProvider extends BaseSwapProvider {
   async getQuote(params: SwapParams, userAddress: string): Promise<SwapQuote> {
     try {
       // Check if either fromToken or toToken is BNB
-      if (
-        params.fromToken.toLowerCase() !== CONSTANTS.BNB_ADDRESS.toLowerCase() &&
-        params.toToken.toLowerCase() !== CONSTANTS.BNB_ADDRESS.toLowerCase()
-      ) {
-        throw new Error('One of the tokens must be BNB for FourMeme swaps');
-      }
+      // if (
+      //   params.fromToken.toLowerCase() !== CONSTANTS.BNB_ADDRESS.toLowerCase() &&
+      //   params.toToken.toLowerCase() !== CONSTANTS.BNB_ADDRESS.toLowerCase()
+      // ) {
+      //   throw new Error('One of the tokens must be BNB for FourMeme swaps');
+      // }
 
       const [tokenIn, tokenOut] = await Promise.all([
         this.getToken(params.fromToken, params.network),

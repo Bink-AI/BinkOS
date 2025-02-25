@@ -1,12 +1,8 @@
 {
-  "name": "@binkai/okx-provider",
-  "version": "0.0.23",
+  "name": "@binkai/oku-provider",
+  "version": "0.0.22",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Bink-AI/BinkOS"
-  },
   "scripts": {
     "build": "tsc",
     "clean": "rimraf dist"
@@ -20,7 +16,6 @@
     "access": "public"
   },
   "dependencies": {
-    "@binkai/core": "workspace:*",
     "@binkai/swap-plugin": "workspace:*",
     "@binkai/core": "workspace:*",
     "crypto-js": "^4.1.1",

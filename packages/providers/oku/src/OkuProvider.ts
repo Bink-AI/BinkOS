@@ -1,15 +1,19 @@
 import { SwapQuote, SwapParams, NetworkProvider, BaseSwapProvider } from '@binkai/swap-plugin';
-import { ethers, Provider } from 'ethers';
-import CryptoJS from 'crypto-js';
+import { ethers, Contract, Interface, Provider } from 'ethers';
 import { EVM_NATIVE_TOKEN_ADDRESS, NetworkName, Token } from '@binkai/core';
+// Enhanced interface with better type safety
+interface TokenInfo extends Token {
+  // Inherits all Token properties and maintains DRY principle
+}
 
-// Constants for better maintainability
+// Core system constants
 const CONSTANTS = {
   DEFAULT_GAS_LIMIT: '350000',
   APPROVE_GAS_LIMIT: '50000',
   QUOTE_EXPIRY: 5 * 60 * 1000, // 5 minutes in milliseconds
-  OKX_BNB_ADDRESS: EVM_NATIVE_TOKEN_ADDRESS,
-  OKX_APPROVE_ADDRESS: '0x2c34A2Fb1d0b4f55de51E1d0bDEfaDDce6b7cDD6',
+  BNB_ADDRESS: EVM_NATIVE_TOKEN_ADDRESS,
+  OKU_BNB_ADDRESS: '0x0000000000000000000000000000000000000000',
+  OKU_API_PATH: 'https://canoe.v2.icarus.tools/market/zeroex/swap_quote',
 } as const;
 
 enum ChainId {
@@ -17,39 +21,25 @@ enum ChainId {
   ETH = 1,
 }
 
-export class OkxProvider extends BaseSwapProvider {
+export class OkuProvider extends BaseSwapProvider {
   private chainId: ChainId;
-  private readonly apiKey: string;
-  private readonly secretKey: string;
-  private readonly passphrase: string;
-  private readonly projectId: string;
-  protected GAS_BUFFER: bigint = ethers.parseEther('0.0003');
 
   constructor(provider: Provider, chainId: ChainId = ChainId.BSC) {
-    // Create a Map with BNB network and the provider
     const providerMap = new Map<NetworkName, NetworkProvider>();
     providerMap.set(NetworkName.BNB, provider);
-
     super(providerMap);
     this.chainId = chainId;
-    this.apiKey = process.env.OKX_API_KEY || '';
-    this.secretKey = process.env.OKX_SECRET_KEY || '';
-    this.passphrase = process.env.OKX_PASSPHRASE || '';
-    this.projectId = process.env.OKX_PROJECT || '';
   }
 
   getName(): string {
-    return 'okx';
+    return 'oku';
   }
-
   getSupportedNetworks(): NetworkName[] {
     return [NetworkName.BNB];
   }
-
   protected isNativeToken(tokenAddress: string): boolean {
     return tokenAddress.toLowerCase() === EVM_NATIVE_TOKEN_ADDRESS.toLowerCase();
   }
-
   protected async getToken(tokenAddress: string, network: NetworkName): Promise<Token> {
     if (this.isNativeToken(tokenAddress)) {
       return {
@@ -69,31 +59,10 @@ export class OkxProvider extends BaseSwapProvider {
     };
     return tokenInfo;
   }
-
-  /**
-   * Generates OKX API signature and headers
-   * @param path API endpoint path
-   * @param timestamp ISO timestamp
-   * @returns Headers for OKX API request
-   */
-  private generateApiHeaders(path: string, timestamp: string): HeadersInit {
-    const signature = CryptoJS.enc.Base64.stringify(
-      CryptoJS.HmacSHA256(timestamp + 'GET' + path, this.secretKey),
-    );
-
-    return {
-      'OK-ACCESS-KEY': this.apiKey,
-      'OK-ACCESS-SIGN': signature,
-      'OK-ACCESS-TIMESTAMP': timestamp,
-      'OK-ACCESS-PASSPHRASE': this.passphrase,
-      'OK-ACCESS-PROJECT': this.projectId,
-    };
-  }
-
   async getQuote(params: SwapParams, userAddress: string): Promise<SwapQuote> {
     try {
       if (params.type === 'output') {
-        throw new Error('OKX does not support output swaps');
+        throw new Error('OKU does not support output swaps');
       }
 
       const [tokenIn, tokenOut] = await Promise.all([
@@ -101,38 +70,39 @@ export class OkxProvider extends BaseSwapProvider {
         this.getToken(params.toToken, params.network),
       ]);
 
-      const amountIn =
-        params.type === 'input'
-          ? Math.floor(Number(params.amount) * 10 ** tokenIn.decimals)
-          : Math.floor(Number(params.amount) * 10 ** tokenOut.decimals);
+      const tokenInAddress =
+        tokenIn.address === CONSTANTS.BNB_ADDRESS ? CONSTANTS.OKU_BNB_ADDRESS : tokenIn.address;
 
-      const now = new Date();
-
-      const isoString = now.toISOString();
-
-      const slippageOKX = Number(params.slippage) / 100 || 0.1;
-
-      const path = `/api/v5/dex/aggregator/swap?amount=${amountIn}&chainId=${this.chainId}&fromTokenAddress=${tokenIn.address}&toTokenAddress=${tokenOut.address}&slippage=${slippageOKX}&userWalletAddress=${userAddress}`;
-
-      console.log('🤖 OKX Path', path);
-
-      const headers = this.generateApiHeaders(path, isoString);
-
-      const response = await fetch(`https://www.okx.com${path}`, {
-        method: 'GET',
+      const slippageOKU = Number(params.slippage) * 100 || 0.1;
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      const body = JSON.stringify({
+        chain: 'bsc',
+        account: userAddress,
+        inTokenAddress: tokenInAddress,
+        outTokenAddress: tokenOut.address,
+        isExactIn: true,
+        slippage: slippageOKU,
+        inTokenAmount: params.amount,
+      });
+      const response = await fetch(CONSTANTS.OKU_API_PATH, {
+        method: 'POST',
         headers,
+        body,
       });
 
       const data = await response.json();
-      if (!data.data || data.data.length === 0) {
-        throw new Error('No data returned from OKX');
+      console.log('Response:', data);
+      if (!data || data.length === 0) {
+        throw new Error('No data returned from OKU');
       }
 
-      const inputAmount = data.data[0].routerResult.fromTokenAmount;
-      const outputAmount = data.data[0].routerResult.toTokenAmount;
-      const estimatedGas = data.data[0].routerResult.estimatedGas;
-      const priceImpact = Number(data.data[0].routerResult.priceImpactPercentage);
-      const tx = data.data[0].tx;
+      const inputAmount = data.inAmount;
+      const outputAmount = data.outAmount;
+      const estimatedGas = data.fees.gas;
+      const priceImpact = 0;
+      const tx = data.coupon.raw.quote.transaction;
 
       // Generate a unique quote ID
       const quoteId = ethers.hexlify(ethers.randomBytes(32));
@@ -143,10 +113,10 @@ export class OkxProvider extends BaseSwapProvider {
         fromToken: tokenIn,
         toToken: tokenOut,
         slippage: params.slippage,
-        fromAmount: ethers.formatUnits(inputAmount.toString(), tokenIn.decimals),
-        toAmount: ethers.formatUnits(outputAmount.toString(), tokenOut.decimals),
+        fromAmount: inputAmount,
+        toAmount: outputAmount,
         priceImpact,
-        route: ['okx'],
+        route: ['oku'],
         estimatedGas: estimatedGas,
         type: params.type,
         tx: {
@@ -159,6 +129,7 @@ export class OkxProvider extends BaseSwapProvider {
           network: params.network,
         },
       };
+      console.log('log', quote);
       // Store the quote and trade for later use
       this.quotes.set(quoteId, { quote, expiresAt: Date.now() + CONSTANTS.QUOTE_EXPIRY });
 
@@ -175,4 +146,27 @@ export class OkxProvider extends BaseSwapProvider {
       );
     }
   }
+
+  //   async buildSwapTransaction(quote: SwapQuote, userAddress: string): Promise<SwapTransaction> {
+  //     try {
+  //       // Get the stored quote and trade
+  //       const storedData = this.quotes.get(quote.quoteId);
+
+  //       if (!storedData) {
+  //         throw new Error('Quote expired or not found. Please get a new quote.');
+  //       }
+
+  //       return {
+  //         to: storedData?.quote.tx?.to || '',
+  //         data: storedData?.quote?.tx?.data || '',
+  //         value: storedData?.quote?.tx?.value || '0',
+  //         gasLimit: '350000',
+  //       };
+  //     } catch (error: unknown) {
+  //       console.error('Error building swap transaction:', error);
+  //       throw new Error(
+  //         `Failed to build swap transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
+  //       );
+  //     }
+  //   }
 }

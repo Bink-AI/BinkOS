@@ -42,6 +42,9 @@ export class KyberProvider extends BaseSwapProvider {
   getSupportedNetworks(): NetworkName[] {
     return [NetworkName.BNB];
   }
+  // getPrompt(): string {
+  //   return `If you are using KyberSwap, You can use BNB with address ${CONSTANTS.BNB_ADDRESS}`;
+  // }
 
   protected isNativeToken(tokenAddress: string): boolean {
     return tokenAddress.toLowerCase() === EVM_NATIVE_TOKEN_ADDRESS.toLowerCase();
@@ -67,6 +70,42 @@ export class KyberProvider extends BaseSwapProvider {
     return tokenInfo;
   }
 
+  // /**
+  //  * Retrieves token information with caching and TTL
+  //  * @param tokenAddress The address of the token
+  //  * @returns Promise<Token>
+  //  */
+  // private async getToken(tokenAddress: string): Promise<Token> {
+  //   const now = Date.now();
+  //   const cached = this.tokenCache.get(tokenAddress);
+
+  //   if (cached && now - cached.timestamp < this.CACHE_TTL) {
+  //     return cached.token;
+  //   }
+
+  //   if (tokenAddress.toLowerCase() === EVM_NATIVE_TOKEN_ADDRESS.toLowerCase()) {
+  //     const token = {
+  //       chainId: this.chainId,
+  //       address: tokenAddress as `0x${string}`,
+  //       decimals: 18,
+  //       symbol: 'BNB',
+  //     };
+  //     this.tokenCache.set(tokenAddress, { token, timestamp: now });
+  //     return token;
+  //   }
+
+  //   const info = await this.getTokenInfo(tokenAddress);
+  //   console.log('🤖 Token info', info);
+  //   const token = {
+  //     chainId: info.chainId,
+  //     address: info.address.toLowerCase() as `0x${string}`,
+  //     decimals: info.decimals,
+  //     symbol: info.symbol,
+  //   };
+
+  //   this.tokenCache.set(tokenAddress, { token, timestamp: now });
+  //   return token;
+  // }
   async getQuote(params: SwapParams, userAddress: string): Promise<SwapQuote> {
     try {
       // Fetch input and output token information
@@ -100,7 +139,7 @@ export class KyberProvider extends BaseSwapProvider {
         optimalRoute,
       );
       this.storeQuoteWithExpiry(swapQuote);
-
+      console.log('log', swapQuote);
       return swapQuote;
     } catch (error: unknown) {
       console.error('Error getting quote:', error);
