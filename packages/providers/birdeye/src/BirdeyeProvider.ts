@@ -63,7 +63,7 @@ export class BirdeyeProvider implements ITokenProvider, IWalletProvider {
         headers: this.getHeaders(network),
         params: {
           keyword: query,
-          sort_by: 'volume_24h_usd',
+          sort_by: 'liquidity',
           sort_type: 'desc',
           limit: 10,
           chain: this.mapChain(network),
@@ -243,7 +243,7 @@ export class BirdeyeProvider implements ITokenProvider, IWalletProvider {
         address: address,
         nativeBalance: undefined,
         tokens: response.data.data.items.map((token: any) => ({
-          address: token.address,
+          tokenAddress: token.address,
           symbol: token.symbol,
           name: token.name,
           decimals: token.decimals,

@@ -1,5 +1,6 @@
 import { BasePlugin, IPluginConfig, NetworkName } from '@binkai/core';
 import { GetWalletBalanceTool } from './WalletBalanceTool';
+import { TransferTool } from './TransferTool';
 import { IWalletProvider } from './types';
 import { ProviderRegistry } from './ProviderRegistry';
 
@@ -12,6 +13,7 @@ export interface WalletPluginConfig extends IPluginConfig {
 export class WalletPlugin extends BasePlugin {
   public registry: ProviderRegistry;
   private walletTool!: GetWalletBalanceTool;
+  private transferTool!: TransferTool;
   private supportedNetworks: Set<string>;
 
   constructor() {
@@ -30,6 +32,11 @@ export class WalletPlugin extends BasePlugin {
       supportedNetworks: Array.from(this.supportedNetworks),
     });
 
+    this.transferTool = new TransferTool({
+      defaultNetwork: config.defaultNetwork,
+      supportedNetworks: Array.from(this.supportedNetworks),
+    });
+
     if (config.providers) {
       for (const provider of config.providers) {
         this.registerProvider(provider);
@@ -40,6 +47,7 @@ export class WalletPlugin extends BasePlugin {
   registerProvider(provider: IWalletProvider): void {
     this.registry.registerProvider(provider);
     this.walletTool.registerProvider(provider);
+    this.transferTool.registerProvider(provider);
     provider.getSupportedNetworks().forEach(network => {
       this.supportedNetworks.add(network);
     });
@@ -62,6 +70,6 @@ export class WalletPlugin extends BasePlugin {
   }
 
   getTools() {
-    return [this.walletTool];
+    return [this.walletTool, this.transferTool];
   }
 }

@@ -17,7 +17,7 @@ import { PancakeSwapProvider } from '@binkai/pancakeswap-provider';
 import { TokenPlugin } from '@binkai/token-plugin';
 import { BirdeyeProvider } from '@binkai/birdeye-provider';
 import { WalletPlugin } from '@binkai/wallet-plugin';
-import { BnbProvider } from '@binkai/bnb-provider';
+import { BnbProvider } from '@binkai/rpc-provider';
 // import { FourMemeProvider } from '@binkai/four-meme-provider';
 
 // Hardcoded RPC URLs for demonstration

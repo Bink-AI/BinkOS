@@ -14,6 +14,8 @@
     { "path": "../../packages/providers/pancakeswap" },
     { "path": "../../packages/providers/bink" },
     { "path": "../../packages/providers/deBridge" },
+    { "path": "../../packages/providers/rpc" },
+    { "path": "../../packages/plugins/wallet" },
     { "path": "../../packages/plugins/staking" }
   ],
   "include": ["src/**/*"]

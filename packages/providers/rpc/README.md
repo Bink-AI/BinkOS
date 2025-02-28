@@ -8,10 +8,10 @@ The BNB Provider is part of the Bink OS ecosystem, implementing the `IWalletProv
 
 ## Installation
 
-To use the BNB Provider, you can install it via npm or yarn:
+To use the RPC Provider, you can install it via npm or yarn:
 
 ```bash
-pnpm install @binkai/bnb-provider
+pnpm install @binkai/rpc-provider
 ```
 
 ## Features
@@ -25,7 +25,7 @@ pnpm install @binkai/bnb-provider
 ### Basic Setup
 
 ```typescript
-import { BNBProvider } from '@binkai/bnb-provider';
+import { BNBProvider } from '@binkai/rpc-provider';
 
 const provider = new BNBProvider({
   rpcUrl: 'https://bsc-dataseed.binance.org',
@@ -36,7 +36,7 @@ const provider = new BNBProvider({
 
 ```typescript
 // Get wallet balance and token holdings
-const walletInfo = await provider.getWalletInfo('0x123...abc', 'bnb');
+const walletInfo = await provider.getWalletInfo('0x123...abc');
 
 console.log('BNB Balance:', walletInfo.balance);
 console.log('Tokens:', walletInfo.tokens);

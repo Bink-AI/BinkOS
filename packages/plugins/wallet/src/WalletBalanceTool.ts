@@ -70,7 +70,7 @@ export class GetWalletBalanceTool extends BaseTool {
   getDescription(): string {
     const providers = this.registry.getProviderNames().join(', ');
     const networks = Array.from(this.supportedNetworks).join(', ');
-    return `Get wallet balance from address. Supports networks: ${networks}. Available providers: ${providers}`;
+    return `Get detailed information about tokens and native currencies in a wallet. Shows balances of all tokens (ERC20, NFTs) and native currencies (ETH, BNB, etc.) that a wallet holds, including token balances, token addresses, symbols, and decimals. Supports networks: ${networks}. Available providers: ${providers}. Use this tool when you need to check what tokens or coins a wallet contains, their balances, and detailed token information.`;
   }
 
   private getsupportedNetworks(): string[] {
