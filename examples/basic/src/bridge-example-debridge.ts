@@ -10,6 +10,8 @@ import {
 } from '@binkai/core';
 import { BridgePlugin } from '@binkai/bridge-plugin';
 import { deBridgeProvider } from '@binkai/debridge-provider';
+import { TokenPlugin } from '@binkai/token-plugin';
+import { BirdeyeProvider } from '@binkai/birdeye-provider';
 // Hardcoded RPC URLs for demonstration
 const BNB_RPC = 'https://bsc-dataseed1.binance.org';
 const ETH_RPC = 'https://eth.llamarpc.com';
@@ -78,15 +80,17 @@ async function main() {
     network,
   );
 
+  console.log('🤖 Wallet SOL:', await wallet.getAddress(NetworkName.SOLANA));
+  console.log('🤖 Wallet EVM:', await wallet.getAddress(NetworkName.BNB));
+
   // Create an agent with OpenAI
   console.log('🤖 Initializing AI agent...');
   const agent = new Agent(
     {
       model: 'gpt-4o',
       temperature: 0,
-      // systemPrompt: `
-      // my bnb wallet: ${await wallet.getAddress('bnb')}
-      // my solana wallet : ${await wallet.getAddress('solana')}`
+      systemPrompt:
+        'You are a BINK AI agent. You are able to perform bridge and get token information on multiple chains. If you do not have the token address, you can use the symbol to get the token information before performing a bridge.',
     },
     wallet,
     networks,
@@ -97,8 +101,24 @@ async function main() {
   console.log('🔄 Initializing bridge plugin...');
   const bridgePlugin = new BridgePlugin();
 
+  console.log('🔍 Initializing token plugin...');
+  const tokenPlugin = new TokenPlugin();
+
+  // Create Birdeye provider with API key
+  const birdeye = new BirdeyeProvider({
+    apiKey: settings.get('BIRDEYE_API_KEY'),
+  });
+
+  // Configure the plugin with supported chains
+  await tokenPlugin.initialize({
+    defaultChain: 'bnb',
+    providers: [birdeye],
+    supportedChains: ['solana', 'bnb'],
+  });
+  console.log('✓ Token plugin initialized\n');
+
   // Create providers with proper chain IDs
-  const debridge = new deBridgeProvider(provider);
+  const debridge = new deBridgeProvider(provider, 56, 7565164);
 
   // Configure the plugin with supported chains
   await bridgePlugin.initialize({
@@ -114,11 +134,16 @@ async function main() {
   await agent.registerPlugin(bridgePlugin);
   console.log('✓ Plugin registered\n');
 
+  console.log('🔌 Registering token plugin with agent...');
+  await agent.registerPlugin(tokenPlugin);
+  console.log('✓ Plugin registered\n');
+
   console.log('💱 Example 1:Bridge BNB to SOL on DeBridge Finance');
   const inputResult = await agent.execute({
-    input: `
-      Bridge 0.005 BNB to SOL
-    `,
+    //input: `Bridge 10 USDC from SOL to BNB`,
+    //input: `Bridge 0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d on BNB to amount 5 Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB on solana`, // usdc bnb to usdt sol
+    input: `Bridge 0.00233344223232434 SOL to BNB`, // bridge and swap
+    //input: `Bridge 5 USDC on SOL to 0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d on solana`,
   });
   console.log('✓ Bridge result (input):', inputResult, '\n');
 
@@ -127,12 +152,12 @@ async function main() {
 
   // Check available providers for each chain
   // console.log('📊 Available providers by chain:');
-  const chains = registeredPlugin.getSupportedChains();
-  for (const chain of chains) {
-    const providers = registeredPlugin.getProvidersForChain(chain);
-    console.log(`Chain ${chain}:`, providers.map(p => p.getName()).join(', '));
+  const supportedNetworks = registeredPlugin.getSupportedNetworks();
+  for (const itemnetwork of supportedNetworks) {
+    const providers = registeredPlugin.getProvidersForNetwork(itemnetwork);
+    console.log(`Network ${network}:`, providers.map(p => p.getName()).join(', '));
   }
-  console.log('✓ Available providers:', chains.join(', '));
+  console.log('✓ Available providers:', supportedNetworks.join(', '));
 }
 
 main().catch(error => {

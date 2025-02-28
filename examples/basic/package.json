@@ -11,7 +11,7 @@
     "swap": "ts-node src/swap-example.ts",
     "swap-okx": "ts-node src/swap-example-okx.ts",
     "swap-kyber": "ts-node src/swap-example-kyber.ts",
-    "bridge": "ts-node src/bridge-example.ts",
+    "bridge-debridge": "ts-node src/bridge-example-debridge.ts",
     "swap-four-meme": "ts-node src/swap-example-four-meme.ts",
     "staking-venus": "ts-node src/staking-example-venus.ts",
     "token": "ts-node src/token-example.ts",

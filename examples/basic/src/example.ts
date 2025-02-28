@@ -19,6 +19,8 @@ import { BirdeyeProvider } from '@binkai/birdeye-provider';
 import { WalletPlugin } from '@binkai/wallet-plugin';
 import { BnbProvider } from '@binkai/bnb-provider';
 // import { FourMemeProvider } from '@binkai/four-meme-provider';
+import { BridgePlugin } from '@binkai/bridge-plugin';
+import { deBridgeProvider } from '@binkai/debridge-provider';
 
 // Hardcoded RPC URLs for demonstration
 const BNB_RPC = 'https://bsc-dataseed1.binance.org';
@@ -145,6 +147,9 @@ async function main() {
   console.log('🔄 Initializing swap plugin...');
   const swapPlugin = new SwapPlugin();
 
+  console.log('🔄 Initializing bridge plugin...');
+  const bridgePlugin = new BridgePlugin();
+
   console.log('🔍 Initializing token plugin...');
   const tokenPlugin = new TokenPlugin();
 
@@ -191,6 +196,17 @@ async function main() {
   });
   console.log('✓ Swap plugin initialized\n');
 
+  // Create providers with proper chain IDs
+  const debridge = new deBridgeProvider(provider);
+  // Configure the plugin with supported chains
+  await bridgePlugin.initialize({
+    defaultChain: 'bnb',
+    providers: [debridge],
+    supportedChains: ['bnb', 'solana'], // These will be intersected with agent's networks
+  });
+
+  console.log('✓ Bridge plugin initialized\n');
+
   // Register the plugin with the agent
   console.log('🔌 Registering swap plugin with agent...');
   await agent.registerPlugin(swapPlugin);
@@ -204,12 +220,17 @@ async function main() {
   await agent.registerPlugin(tokenPlugin);
   console.log('✓ Plugin registered\n');
 
+  console.log('🔌 Registering bridge plugin with agent...');
+  await agent.registerPlugin(bridgePlugin);
+  console.log('✓ Plugin registered\n');
+
   // Example 1: Buy with exact input amount on BNB Chain
   console.log('💱 Example 1: Buy BINK from exactly 0.0001 BNB with 0.5% slippage on bnb chain.');
   const result1 = await agent.execute({
     input: `
       Buy BINK from exactly 0.0001 BNB with 0.5% slippage on bnb chain.
     `,
+    //input: `swap crosschain 5 WETH on BNB to JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN on solana`,
   });
   console.log('✓ Swap result:', result1, '\n');
 
@@ -221,10 +242,11 @@ async function main() {
     `,
   });
 
-  console.log('✓ Swap result:', result2, '\n');
+  //console.log('✓ Swap result:', result2, '\n');
 
   // Get plugin information
   const registeredPlugin = agent.getPlugin('swap') as SwapPlugin;
+  //const registeredPlugin = agent.getPlugin('bridge') as BridgePlugin;
 
   // Check available providers for each chain
   console.log('📊 Available providers by chain:');

@@ -121,7 +121,7 @@ async function main() {
   await swapPlugin.initialize({
     defaultSlippage: 0.5,
     defaultChain: 'bnb',
-    providers: [pancakeswap, fourMeme, okx],
+    providers: [pancakeswap], // Only include pancakeswap since others don't implement required interface
     supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
   });
   console.log('✓ Swap plugin initialized\n');

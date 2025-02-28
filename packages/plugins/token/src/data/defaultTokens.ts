@@ -55,6 +55,16 @@ export const defaultTokens: Partial<Record<NetworkName, Record<string, TokenInfo
       logoURI: 'https://tokens.pancakeswap.finance/images/symbol/cake.png',
       verified: true,
     },
+    // USDC
+    '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d': {
+      address: '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
+      symbol: 'USDC',
+      name: 'USD Coin',
+      decimals: 18,
+      network: NetworkName.BNB,
+      logoURI: 'https://tokens.pancakeswap.finance/images/symbol/usdc.png',
+      verified: true,
+    },
   },
 
   // Ethereum tokens
@@ -104,14 +114,14 @@ export const defaultTokens: Partial<Record<NetworkName, Record<string, TokenInfo
   // Solana tokens
   [NetworkName.SOLANA]: {
     // SOL - Native token
-    So11111111111111111111111111111111111111112: {
-      address: 'So11111111111111111111111111111111111111112',
+    So11111111111111111111111111111111111111111: {
+      address: 'So11111111111111111111111111111111111111111',
       symbol: 'SOL',
       name: 'Solana',
       decimals: 9,
       network: NetworkName.SOLANA,
       logoURI:
-        'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
+        'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111111/logo.png',
       verified: true,
     },
     // USDC
@@ -156,6 +166,28 @@ export const defaultTokens: Partial<Record<NetworkName, Record<string, TokenInfo
       network: NetworkName.SOLANA,
       logoURI:
         'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R/logo.png',
+      verified: true,
+    },
+    // Jupiter
+    JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: {
+      address: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+      symbol: 'JUP',
+      name: 'Jupiter',
+      decimals: 6,
+      network: NetworkName.SOLANA,
+      logoURI:
+        'https://tokens.debridge.finance/Logo/7565164/JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN/small/token-logo.png',
+      verified: true,
+    },
+    // TRUMP
+    '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN': {
+      address: '6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN',
+      symbol: 'TRUMP',
+      name: 'Official Trump',
+      decimals: 6,
+      network: NetworkName.SOLANA,
+      logoURI:
+        'https://tokens.debridge.finance/Logo/7565164/6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN/small/token-logo.png',
       verified: true,
     },
   },
