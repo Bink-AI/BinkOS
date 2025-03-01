@@ -100,11 +100,24 @@ export class OkxProvider extends BaseSwapProvider {
         this.getToken(params.fromToken, params.network),
         this.getToken(params.toToken, params.network),
       ]);
+      let adjustedAmount = params.amount;
+      if (params.type === 'input') {
+        // Use the adjustAmount method for all tokens (both native and ERC20)
+        adjustedAmount = await this.adjustAmount(
+          params.fromToken,
+          params.amount,
+          userAddress,
+          params.network,
+        );
 
+        if (adjustedAmount !== params.amount) {
+          console.log(`🤖 Okx adjusted input amount from ${params.amount} to ${adjustedAmount}`);
+        }
+      }
       const amountIn =
         params.type === 'input'
-          ? ethers.parseUnits(params.amount, tokenIn.decimals)
-          : ethers.parseUnits(params.amount, tokenOut.decimals);
+          ? ethers.parseUnits(adjustedAmount, tokenIn.decimals)
+          : ethers.parseUnits(adjustedAmount, tokenOut.decimals);
 
       const now = new Date();
 
@@ -124,7 +137,6 @@ export class OkxProvider extends BaseSwapProvider {
       });
 
       const data = await response.json();
-
       if (!data.data || data.data.length === 0) {
         throw new Error('No data returned from OKX');
       }

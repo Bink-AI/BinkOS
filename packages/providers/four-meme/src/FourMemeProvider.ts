@@ -68,23 +68,30 @@ export class FourMemeProvider extends BaseSwapProvider {
 
   async getQuote(params: SwapParams, userAddress: string): Promise<SwapQuote> {
     try {
-      // Check if either fromToken or toToken is BNB
-      if (
-        params.fromToken.toLowerCase() !== CONSTANTS.BNB_ADDRESS.toLowerCase() &&
-        params.toToken.toLowerCase() !== CONSTANTS.BNB_ADDRESS.toLowerCase()
-      ) {
-        throw new Error('One of the tokens must be BNB for FourMeme swaps');
-      }
-
       const [tokenIn, tokenOut] = await Promise.all([
         this.getToken(params.fromToken, params.network),
         this.getToken(params.toToken, params.network),
       ]);
+      let adjustedAmount = params.amount;
+      if (params.type === 'input') {
+        // Use the adjustAmount method for all tokens (both native and ERC20)
+        adjustedAmount = await this.adjustAmount(
+          params.fromToken,
+          params.amount,
+          userAddress,
+          params.network,
+        );
 
+        if (adjustedAmount !== params.amount) {
+          console.log(
+            `🤖 FourMeme adjusted input amount from ${params.amount} to ${adjustedAmount}`,
+          );
+        }
+      }
       const amountIn =
         params.type === 'input'
-          ? ethers.parseUnits(params.amount, tokenIn.decimals)
-          : ethers.parseUnits(params.amount, tokenOut.decimals);
+          ? ethers.parseUnits(adjustedAmount, tokenIn.decimals)
+          : ethers.parseUnits(adjustedAmount, tokenOut.decimals);
 
       const needToken =
         tokenIn.address.toLowerCase() === CONSTANTS.BNB_ADDRESS.toLowerCase()

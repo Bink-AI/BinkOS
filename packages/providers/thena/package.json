@@ -1,5 +1,5 @@
 {
-  "name": "@binkai/kyber-provider",
+  "name": "@binkai/thena-provider",
   "version": "0.1.2-alpha.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

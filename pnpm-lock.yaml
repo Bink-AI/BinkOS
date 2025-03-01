@@ -59,6 +59,9 @@ importers:
       '@binkai/kyber-provider':
         specifier: workspace:*
         version: link:../../packages/providers/kyber
+      '@binkai/oku-provider':
+        specifier: workspace:*
+        version: link:../../packages/providers/oku
       '@binkai/okx-provider':
         specifier: workspace:*
         version: link:../../packages/providers/okx
@@ -74,6 +77,9 @@ importers:
       '@binkai/swap-plugin':
         specifier: workspace:*
         version: link:../../packages/plugins/swap
+      '@binkai/thena-provider':
+        specifier: workspace:*
+        version: link:../../packages/providers/thena
       '@binkai/token-plugin':
         specifier: workspace:*
         version: link:../../packages/plugins/token
@@ -516,6 +522,34 @@ importers:
         specifier: ^5.0.0
         version: 5.7.3
 
+  packages/providers/oku:
+    dependencies:
+      '@binkai/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@binkai/swap-plugin':
+        specifier: workspace:*
+        version: link:../../plugins/swap
+      crypto-js:
+        specifier: ^4.1.1
+        version: 4.2.0
+      ethers:
+        specifier: ^6.0.0
+        version: 6.13.5(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+    devDependencies:
+      '@types/crypto-js':
+        specifier: ^4.2.2
+        version: 4.2.2
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.17.14
+      rimraf:
+        specifier: ^5.0.0
+        version: 5.0.10
+      typescript:
+        specifier: ^5.0.0
+        version: 5.7.3
+
   packages/providers/okx:
     dependencies:
       '@binkai/core':
@@ -574,6 +608,34 @@ importers:
         specifier: ^2.22.11
         version: 2.22.11(bufferutil@4.0.9)(typescript@5.7.3)(utf-8-validate@5.0.10)(zod@3.24.1)
     devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.17.14
+      rimraf:
+        specifier: ^5.0.0
+        version: 5.0.10
+      typescript:
+        specifier: ^5.0.0
+        version: 5.7.3
+
+  packages/providers/thena:
+    dependencies:
+      '@binkai/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@binkai/swap-plugin':
+        specifier: workspace:*
+        version: link:../../plugins/swap
+      crypto-js:
+        specifier: ^4.1.1
+        version: 4.2.0
+      ethers:
+        specifier: ^6.0.0
+        version: 6.13.5(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+    devDependencies:
+      '@types/crypto-js':
+        specifier: ^4.2.2
+        version: 4.2.2
       '@types/node':
         specifier: ^20.0.0
         version: 20.17.14

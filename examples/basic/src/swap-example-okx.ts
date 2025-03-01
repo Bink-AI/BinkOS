@@ -129,15 +129,15 @@ async function main() {
   console.log('✓ Swap result (input):', inputResult, '\n');
 
   // Example 2: Swap USDT for exact 0.1 BNB on BNB Chain
-  console.log('💱 Example 2: Sell BINK for BNB');
-  const outputResult = await agent.execute({
-    input: `
-      Sell 200 BINK for BNB on Okx with 30% slippage on bnb chain.
-      Use the following token addresses:
-      BINK: 0x5fdfaFd107Fc267bD6d6B1C08fcafb8d31394ba1
-    `,
-  });
-  console.log('✓ Swap result (output):', outputResult, '\n');
+  // console.log('💱 Example 2: Sell BINK for BNB');
+  // const outputResult = await agent.execute({
+  //   input: `
+  //     Sell 200 BINK for BNB on Okx with 30% slippage on bnb chain.
+  //     Use the following token addresses:
+  //     BINK: 0x5fdfaFd107Fc267bD6d6B1C08fcafb8d31394ba1
+  //   `,
+  // });
+  // console.log('✓ Swap result (output):', outputResult, '\n');
 
   // Get plugin information
   const registeredPlugin = agent.getPlugin('swap') as SwapPlugin;

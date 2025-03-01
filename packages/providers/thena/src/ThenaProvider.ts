@@ -1,15 +1,15 @@
 import { SwapQuote, SwapParams, BaseSwapProvider, NetworkProvider } from '@binkai/swap-plugin';
 import { ethers, Provider } from 'ethers';
 import { EVM_NATIVE_TOKEN_ADDRESS, NetworkName, Token } from '@binkai/core';
-import { parseTokenAmount } from '@binkai/swap-plugin/src/utils/tokenUtils';
 
 // Core system constants
 const CONSTANTS = {
   DEFAULT_GAS_LIMIT: '350000',
   APPROVE_GAS_LIMIT: '50000',
   QUOTE_EXPIRY: 5 * 60 * 1000, // 5 minutes in milliseconds
-  KYBER_BNB_ADDRESS: EVM_NATIVE_TOKEN_ADDRESS,
-  KYBER_API_BASE: 'https://aggregator-api.kyberswap.com/bsc/',
+  BNB_ADDRESS: EVM_NATIVE_TOKEN_ADDRESS,
+  THENA_BNB_ADDRESS: '0x0000000000000000000000000000000000000000',
+  THENA_API_BASE: 'https://api.odos.xyz/sor/',
 } as const;
 
 enum ChainId {
@@ -17,7 +17,7 @@ enum ChainId {
   ETH = 1,
 }
 
-export class KyberProvider extends BaseSwapProvider {
+export class ThenaProvider extends BaseSwapProvider {
   private provider: Provider;
   private chainId: ChainId;
   protected GAS_BUFFER: bigint = ethers.parseEther('0.0003');
@@ -33,7 +33,7 @@ export class KyberProvider extends BaseSwapProvider {
   }
 
   getName(): string {
-    return 'kyber';
+    return 'thena';
   }
 
   getSupportedChains(): string[] {
@@ -43,9 +43,6 @@ export class KyberProvider extends BaseSwapProvider {
   getSupportedNetworks(): NetworkName[] {
     return [NetworkName.BNB];
   }
-  // getPrompt(): string {
-  //   return `If you are using KyberSwap, You can use BNB with address ${CONSTANTS.BNB_ADDRESS}`;
-  // }
 
   protected isNativeToken(tokenAddress: string): boolean {
     return tokenAddress.toLowerCase() === EVM_NATIVE_TOKEN_ADDRESS.toLowerCase();
@@ -71,42 +68,6 @@ export class KyberProvider extends BaseSwapProvider {
     return tokenInfo;
   }
 
-  // /**
-  //  * Retrieves token information with caching and TTL
-  //  * @param tokenAddress The address of the token
-  //  * @returns Promise<Token>
-  //  */
-  // private async getToken(tokenAddress: string): Promise<Token> {
-  //   const now = Date.now();
-  //   const cached = this.tokenCache.get(tokenAddress);
-
-  //   if (cached && now - cached.timestamp < this.CACHE_TTL) {
-  //     return cached.token;
-  //   }
-
-  //   if (tokenAddress.toLowerCase() === EVM_NATIVE_TOKEN_ADDRESS.toLowerCase()) {
-  //     const token = {
-  //       chainId: this.chainId,
-  //       address: tokenAddress as `0x${string}`,
-  //       decimals: 18,
-  //       symbol: 'BNB',
-  //     };
-  //     this.tokenCache.set(tokenAddress, { token, timestamp: now });
-  //     return token;
-  //   }
-
-  //   const info = await this.getTokenInfo(tokenAddress);
-  //   console.log('🤖 Token info', info);
-  //   const token = {
-  //     chainId: info.chainId,
-  //     address: info.address.toLowerCase() as `0x${string}`,
-  //     decimals: info.decimals,
-  //     symbol: info.symbol,
-  //   };
-
-  //   this.tokenCache.set(tokenAddress, { token, timestamp: now });
-  //   return token;
-  // }
   async getQuote(params: SwapParams, userAddress: string): Promise<SwapQuote> {
     try {
       // Fetch input and output token information
@@ -114,7 +75,17 @@ export class KyberProvider extends BaseSwapProvider {
         this.getToken(params.fromToken, params.network),
         this.getToken(params.toToken, params.network),
       ]);
+      const tokenInAddress =
+        sourceToken.address === CONSTANTS.BNB_ADDRESS
+          ? CONSTANTS.THENA_BNB_ADDRESS
+          : sourceToken.address;
 
+      const tokenOutAddress =
+        destinationToken.address === CONSTANTS.BNB_ADDRESS
+          ? CONSTANTS.THENA_BNB_ADDRESS
+          : destinationToken.address;
+
+      // Calculate input amount based on decimals
       let adjustedAmount = params.amount;
       if (params.type === 'input') {
         // Use the adjustAmount method for all tokens (both native and ERC20)
@@ -126,11 +97,9 @@ export class KyberProvider extends BaseSwapProvider {
         );
 
         if (adjustedAmount !== params.amount) {
-          console.log(`🤖 Kyber adjusted input amount from ${params.amount} to ${adjustedAmount}`);
+          console.log(`🤖 OKu adjusted input amount from ${params.amount} to ${adjustedAmount}`);
         }
       }
-
-      // Create currency amounts
       const amountIn =
         params.type === 'input'
           ? ethers.parseUnits(adjustedAmount, sourceToken.decimals)
@@ -138,13 +107,19 @@ export class KyberProvider extends BaseSwapProvider {
 
       // Fetch optimal swap route
       const optimalRoute = await this.fetchOptimalRoute(
-        sourceToken.address,
-        destinationToken.address,
+        tokenInAddress,
+        tokenOutAddress,
+        userAddress,
+        params.slippage,
         amountIn.toString(),
       );
 
       // Build swap transaction
       const swapTransactionData = await this.buildSwapRouteTransaction(optimalRoute, userAddress);
+
+      if (!swapTransactionData) {
+        throw new Error('No swap routes available from Thena');
+      }
 
       // Create and store quote
       const swapQuote = this.createSwapQuote(
@@ -165,30 +140,68 @@ export class KyberProvider extends BaseSwapProvider {
   }
 
   // Helper methods for better separation of concerns
-  private async fetchOptimalRoute(sourceToken: string, destinationToken: string, amount: string) {
-    const routePath = `api/v1/routes?tokenIn=${sourceToken}&tokenOut=${destinationToken}&amountIn=${amount}&gasInclude=true`;
-    console.log('🤖 Kyber Path', routePath);
-    const routeResponse = await fetch(`${CONSTANTS.KYBER_API_BASE}${routePath}`);
+  private async fetchOptimalRoute(
+    sourceToken: string,
+    destinationToken: string,
+    userAddress: string,
+    slippage: number,
+    amount?: string,
+  ) {
+    const body = JSON.stringify({
+      chainId: this.chainId,
+      inputTokens: [
+        {
+          tokenAddress: sourceToken,
+          amount: amount,
+        },
+      ],
+      outputTokens: [
+        {
+          tokenAddress: destinationToken,
+          proportion: 1,
+        },
+      ],
+      userAddr: userAddress,
+      slippageLimitPercent: slippage,
+      pathVizImageConfig: {
+        linkColors: ['#B386FF', '#FBA499', '#F9EC66', '#F199EE'],
+        nodeColor: '#422D4C',
+        nodeTextColor: '#D9D5DB',
+        legendTextColor: '#FCE6FB',
+        height: 300,
+      },
+    });
+
+    const routeResponse = await fetch(`${CONSTANTS.THENA_API_BASE}quote/v2`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: body,
+    });
+
     const routeData = await routeResponse.json();
 
-    if (!routeData.data || routeData.data.length === 0) {
-      throw new Error('No swap routes available from Kyber');
+    if (routeData.errorCode === 2000) {
+      throw new Error('No swap routes available from Thena');
     }
-    return routeData.data;
+    return routeData;
   }
 
   private async buildSwapRouteTransaction(routeData: any, userAddress: string) {
-    const transactionResponse = await fetch(`${CONSTANTS.KYBER_API_BASE}api/v1/route/build`, {
+    const transactionResponse = await fetch(`${CONSTANTS.THENA_API_BASE}assemble`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
-        routeSummary: routeData.routeSummary,
-        sender: userAddress,
-        recipient: userAddress,
-        skipSimulateTx: false,
-        slippageTolerance: 200,
+        userAddr: userAddress,
+        pathId: routeData.pathId,
+        simulate: true,
       }),
+      redirect: 'follow',
     });
-    return (await transactionResponse.json()).data;
+    return await transactionResponse.json();
   }
 
   private createSwapQuote(
@@ -199,23 +212,22 @@ export class KyberProvider extends BaseSwapProvider {
     routeData: any,
   ): SwapQuote {
     const quoteId = ethers.hexlify(ethers.randomBytes(32));
-
     return {
       quoteId,
       network: params.network,
       fromToken: sourceToken,
       toToken: destinationToken,
-      fromAmount: ethers.formatUnits(swapTransactionData.amountIn, sourceToken.decimals),
-      toAmount: ethers.formatUnits(swapTransactionData.amountOut, destinationToken.decimals),
+      fromAmount: ethers.formatUnits(routeData.inAmounts[0], sourceToken.decimals),
+      toAmount: ethers.formatUnits(routeData.outAmounts[0], destinationToken.decimals),
       slippage: 100, // 10% default slippage
       type: params.type,
       priceImpact: routeData.priceImpact || 0,
-      route: ['kyber'],
-      estimatedGas: CONSTANTS.DEFAULT_GAS_LIMIT,
+      route: ['thena'],
+      estimatedGas: routeData.gasEstimateValue,
       tx: {
-        to: swapTransactionData.routerAddress,
-        data: swapTransactionData.data,
-        value: swapTransactionData.transactionValue || '0',
+        to: swapTransactionData.transaction.to,
+        data: swapTransactionData.transaction.data,
+        value: swapTransactionData.transaction.value || '0',
         gasLimit: ethers.parseUnits(CONSTANTS.DEFAULT_GAS_LIMIT, 'wei'),
         network: params.network,
       },

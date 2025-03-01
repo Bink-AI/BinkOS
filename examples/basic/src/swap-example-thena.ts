@@ -9,7 +9,7 @@ import {
   NetworkName,
 } from '@binkai/core';
 import { SwapPlugin } from '@binkai/swap-plugin';
-import { FourMemeProvider } from '@binkai/four-meme-provider';
+import { ThenaProvider } from '@binkai/thena-provider';
 
 // Hardcoded RPC URLs for demonstration
 const BNB_RPC = 'https://bsc-dataseed1.binance.org';
@@ -74,7 +74,7 @@ async function main() {
     {
       seedPhrase:
         settings.get('WALLET_MNEMONIC') ||
-        'test test test test test test test test test test test junk',
+        'test test test test test test test test test test test test',
       index: 0,
     },
     network,
@@ -101,13 +101,13 @@ async function main() {
   const swapPlugin = new SwapPlugin();
 
   // Create providers with proper chain IDs
-  const fourMeme = new FourMemeProvider(provider, 56);
+  const thena = new ThenaProvider(provider, 56);
 
   // Configure the plugin with supported chains
   await swapPlugin.initialize({
     defaultSlippage: 0.5,
     defaultChain: 'bnb',
-    providers: [fourMeme],
+    providers: [thena],
     supportedChains: ['bnb', 'ethereum'], // These will be intersected with agent's networks
   });
   console.log('✓ Swap plugin initialized\n');
@@ -117,25 +117,27 @@ async function main() {
   await agent.registerPlugin(swapPlugin);
   console.log('✓ Plugin registered\n');
 
-  console.log('💱 Example 1: Buy SAFUFOUR');
-  const inputResult = await agent.execute({
+  // Example 1: Buy with exact input amount on BNB Chain
+  const result1 = await agent.execute({
     input: `
-      Buy 0.001 BNB to SAFUFOUR on FourMeme bnb chain with 10 % slippage.
+      Buy 0.001 BNB to USDC on ThenaSwap with 10% slippage on bnb chain.
       Use the following token addresses:
-      SAFUFOUR: 0xcf4eef00d87488d523de9c54bf1ba3166532ddb0
+      USDC: 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d
     `,
   });
-  console.log('✓ Swap result (input):', inputResult, '\n');
+  console.log('✓ Swap result:', result1, '\n');
 
-  console.log('💱 Example 2: Sell SAFUFOUR');
-  const outputResult = await agent.execute({
-    input: `
-      Sell 100 SAFUFOUR on FourMeme bnb chain with 10 % slippage.
-      Use the following token addresses:
-      SAFUFOUR: 0xcf4eef00d87488d523de9c54bf1ba3166532ddb0
-    `,
-  });
-  console.log('✓ Swap result (input):', outputResult, '\n');
+  // Example 2: Sell with exact output amount on BNB Chain
+  // console.log('💱 Example 2: Sell with exact output amount on BNB Chain');
+  // const result2 = await agent.execute({
+  //   input: `
+  //     Sell exactly 20 BINK to BNB on ThenaSwap with 0.5% slippage on bnb chain.
+  //     Use the following token addresses:
+  //     BINK: 0x5fdfaFd107Fc267bD6d6B1C08fcafb8d31394ba1
+  //   `,
+  // });
+
+  // console.log('✓ Swap result:', result2, '\n');
 
   // Get plugin information
   const registeredPlugin = agent.getPlugin('swap') as SwapPlugin;

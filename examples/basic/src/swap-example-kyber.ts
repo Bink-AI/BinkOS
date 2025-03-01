@@ -121,7 +121,7 @@ async function main() {
   console.log('💱 Example 1: Buy with exact input amount on BNB Chain');
   const result1 = await agent.execute({
     input: `
-      Buy BINK from exactly 0.0001 BNB on KyberSwap with 10% slippage on bnb chain.
+      Buy BINK from exactly 0.001 BNB on KyberSwap with 10% slippage on bnb chain.
       Use the following token addresses:
       BINK: 0x5fdfaFd107Fc267bD6d6B1C08fcafb8d31394ba1
     `,
@@ -138,7 +138,7 @@ async function main() {
     `,
   });
 
-  console.log('✓ Swap result:', result2, '\n');
+  // console.log('✓ Swap result:', result2, '\n');
 
   // Get plugin information
   const registeredPlugin = agent.getPlugin('swap') as SwapPlugin;
