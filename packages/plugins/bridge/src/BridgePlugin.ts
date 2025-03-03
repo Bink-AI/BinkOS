@@ -1,24 +1,23 @@
 import { BridgeTool } from './BridgeTool';
 import { IBridgeProvider } from './types';
 import { ProviderRegistry } from './ProviderRegistry';
-import { BaseTool, IPluginConfig, BasePlugin } from '@binkai/core';
+import { BaseTool, IPluginConfig, BasePlugin, NetworkName } from '@binkai/core';
 
 export interface BridgePluginConfig extends IPluginConfig {
-  defaultSlippage?: number;
-  defaultChain?: string;
+  defaultNetwork?: string;
   providers?: IBridgeProvider[];
-  supportedChains?: string[];
+  supportedNetworks?: string[];
 }
 
 export class BridgePlugin extends BasePlugin {
   public registry: ProviderRegistry;
   private bridgeTool!: BridgeTool;
-  private supportedChains: Set<string>;
+  private supportedNetworks: Set<string>;
 
   constructor() {
     super();
-    this.registry = new ProviderRegistry(); 
-    this.supportedChains = new Set();
+    this.registry = new ProviderRegistry();
+    this.supportedNetworks = new Set();
   }
 
   getName(): string {
@@ -26,17 +25,15 @@ export class BridgePlugin extends BasePlugin {
   }
 
   async initialize(config: BridgePluginConfig): Promise<void> {
-
     // Initialize supported chains
-    if (config.supportedChains) {
-      config.supportedChains.forEach(chain => this.supportedChains.add(chain));
+    if (config.supportedNetworks) {
+      config.supportedNetworks.forEach(network => this.supportedNetworks.add(network));
     }
 
     // Configure bridge tool
     this.bridgeTool = new BridgeTool({
-      defaultSlippage: config.defaultSlippage,
-      defaultChain: config.defaultChain,
-      supportedChains: Array.from(this.supportedChains),
+      defaultNetwork: config.defaultNetwork,
+      supportedNetworks: Array.from(this.supportedNetworks),
     });
 
     // Register providers if provided in config
@@ -59,8 +56,8 @@ export class BridgePlugin extends BasePlugin {
     this.bridgeTool.registerProvider(provider);
 
     // Add provider's supported chains
-    provider.getSupportedChains().forEach(chain => {
-      this.supportedChains.add(chain);
+    provider.getSupportedNetworks().forEach((network: NetworkName) => {
+      this.supportedNetworks.add(network);
     });
   }
 
@@ -68,32 +65,32 @@ export class BridgePlugin extends BasePlugin {
    * Get all registered providers
    */
   getProviders(): IBridgeProvider[] {
-    return this.registry.getProvidersByChain('*');
+    return this.registry.getProvidersByNetwork('*');
   }
 
   /**
-   * Get providers for a specific chain
+   * Get providers for a specific network
    */
-  getProvidersForChain(chain: string): IBridgeProvider[] {
-    return this.registry.getProvidersByChain(chain);
+  getProvidersForNetwork(network: NetworkName): IBridgeProvider[] {
+    return this.registry.getProvidersByNetwork(network);
   }
 
   /**
    * Get all supported chains
    */
-  getSupportedChains(): string[] {
-    return Array.from(this.supportedChains);
+  getSupportedNetworks(): NetworkName[] {
+    return Array.from(this.supportedNetworks) as NetworkName[];
   }
 
   async cleanup(): Promise<void> {
     // Cleanup any provider resources if needed
     const providers = this.getProviders();
     await Promise.all(
-      providers.map(async (provider) => {
+      providers.map(async provider => {
         if ('cleanup' in provider && typeof provider.cleanup === 'function') {
           await provider.cleanup();
         }
-      })
+      }),
     );
   }
-} 
+}

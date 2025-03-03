@@ -1,3 +1,4 @@
+import { NetworkName } from '@binkai/core';
 import { IBridgeProvider } from './types';
 
 export class ProviderRegistry {
@@ -23,9 +24,12 @@ export class ProviderRegistry {
     return Array.from(this.providers.values());
   }
 
-  getProvidersByChain(chain: string): IBridgeProvider[] {
-    return Array.from(this.providers.values()).filter(provider =>
-      provider.getSupportedChains().includes(chain),
+  getProvidersByNetwork(network: NetworkName | '*'): IBridgeProvider[] {
+    if (network === '*') {
+      return this.getProviders();
+    }
+    return this.getProviders().filter(provider =>
+      provider.getSupportedNetworks().includes(network),
     );
   }
 }

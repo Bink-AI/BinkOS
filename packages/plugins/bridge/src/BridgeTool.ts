@@ -2,34 +2,33 @@ import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { BaseTool, CustomDynamicStructuredTool, IToolConfig, ToolProgress } from '@binkai/core';
 import { ProviderRegistry } from './ProviderRegistry';
-import { IBridgeProvider, BridgeQuote, BridgeParams } from './types';
+import { IBridgeProvider, BridgeQuote, BridgeParams, BasicToken } from './types';
+import { validateTokenAddress } from './utils/addressValidation';
 
 export interface BridgeToolConfig extends IToolConfig {
-  defaultSlippage?: number;
-  defaultChain?: string;
-  supportedChains?: string[];
+  defaultNetwork?: string;
+  supportedNetworks?: string[];
+  supportedTokens?: BasicToken[];
 }
 
 export class BridgeTool extends BaseTool {
   public registry: ProviderRegistry;
-  private defaultSlippage: number;
-  private defaultChain: string;
-  private supportedChains: Set<string>;
+  private defaultNetwork: string;
+  private supportedNetworks: Set<string>;
 
   constructor(config: BridgeToolConfig) {
     super(config);
     this.registry = new ProviderRegistry();
-    this.defaultSlippage = config.defaultSlippage || 0.5;
-    this.defaultChain = config.defaultChain || 'solana';
-    this.supportedChains = new Set<string>(config.supportedChains || []);
-    console.log('BridgeTool constructor', this.defaultChain);
+    this.defaultNetwork = config.defaultNetwork || 'solana';
+    this.supportedNetworks = new Set<string>(config.supportedNetworks || []);
   }
 
   registerProvider(provider: IBridgeProvider): void {
     this.registry.registerProvider(provider);
+    console.log('✓ Provider registered', provider.constructor.name);
     // Add provider's supported chains
-    provider.getSupportedChains().forEach(chain => {
-      this.supportedChains.add(chain);
+    provider.getSupportedNetworks().forEach(network => {
+      this.supportedNetworks.add(network);
     });
   }
 
@@ -39,8 +38,10 @@ export class BridgeTool extends BaseTool {
 
   getDescription(): string {
     const providers = this.registry.getProviderNames().join(', ');
-    const chains = Array.from(this.supportedChains).join(', ');
-    let description = `Bridge tokens using various DEX providers (${providers}). Supports chains: ${chains}. You can specify either input amount (how much to spend) or output amount (how much to receive).`;
+    const networks = Array.from(this.supportedNetworks).join(', ');
+
+    let description = `Bridge or swap crosschain tokens using various DEX providers (${providers}).Supports networks: ${networks}.
+     You can specify either input amount (how much to spend) or to output amount (how much to receive).`;
 
     // Add provider-specific prompts if they exist
     const providerPrompts = this.registry
@@ -58,15 +59,15 @@ export class BridgeTool extends BaseTool {
     return description;
   }
 
-  private getSupportedChains(): string[] {
+  private getSupportedNetworks(): string[] {
     // Get networks from agent's wallet
     const agentNetworks = Object.keys(this.agent.getNetworks());
 
     // Intersect with supported chains from providers
-    const providerChains = Array.from(this.supportedChains);
+    const providerNetworks = Array.from(this.supportedNetworks);
 
     // Return intersection of agent networks and provider supported chains
-    return agentNetworks.filter(network => providerChains.includes(network));
+    return agentNetworks.filter(network => providerNetworks.includes(network));
   }
 
   getSchema(): z.ZodObject<any> {
@@ -75,53 +76,51 @@ export class BridgeTool extends BaseTool {
       throw new Error('No bridge providers registered');
     }
 
-    const supportedChains = this.getSupportedChains();
-    if (supportedChains.length === 0) {
-      throw new Error('No supported chains available');
+    const supportedNetworks = this.getSupportedNetworks();
+    if (supportedNetworks.length === 0) {
+      throw new Error('No supported networks available');
     }
 
     return z.object({
-      fromChain: z.string().describe('The chain to bridge from'),
-      toChain: z.string().describe('The chain to bridge to'),
-      //   wallet: z.string().describe('The wallet address to bridge'),
-      //   walletReceive: z.string().describe('The wallet receive address'),
+      fromNetwork: z
+        .enum(supportedNetworks as [string, ...string[]])
+        .default(this.defaultNetwork)
+        .describe('The blockchain network to execute the bridge from'),
+      toNetwork: z
+        .enum(supportedNetworks as [string, ...string[]])
+        .default(this.defaultNetwork)
+        .describe('The blockchain network to execute the bridge to. Example: Solana similar SOL'),
       fromToken: z.string().describe('The token address to bridge from'),
-      //token: z.string().describe('The token address or symbol to bridge'),
-      toToken: z.string().describe('The token address to bridge to on the destination chain'),
+      toToken: z.string().describe('The token address to bridge to'),
       amount: z.string().describe('The amount of tokens to bridge'),
       amountType: z
         .enum(['input', 'output'])
         .describe('Whether the amount is input (spend) or output (receive)'),
-      //   chain: z
-      //     .enum(supportedChains as [string, ...string[]])
-      //     .default(this.defaultChain)
-      //     .describe('The blockchain to execute the bridge on'),
-      //   provider: z
-      //     .enum(providers as [string, ...string[]])
-      //     .optional()
-      //     .describe(
-      //       'The DEX provider to use for the bridge. If not specified, the best rate will be found',
-      //     ),
-      slippage: z
-        .number()
+      provider: z
+        .enum(providers as [string, ...string[]])
         .optional()
-        .describe(`Maximum slippage percentage allowed (default: ${this.defaultSlippage})`),
+        .describe(
+          'The protocol provider to use for the bridge. If not specified, the best rate will be found',
+        ),
     });
   }
 
   private async findBestQuote(
-    params: BridgeParams & { chain: string },
+    params: BridgeParams & { network: string },
+    fromWalletAddress: string,
+    toWalletAddress: string,
   ): Promise<{ provider: IBridgeProvider; quote: BridgeQuote }> {
     // Validate chain is supported
-    const providers = this.registry.getProvidersByChain(params.chain);
+    const providers = this.registry.getProvidersByNetwork(params.fromNetwork);
     if (providers.length === 0) {
-      throw new Error(`No providers available for chain ${params.chain}`);
+      throw new Error(`No providers available for network ${params.network}`);
     }
 
     const quotes = await Promise.all(
       providers.map(async provider => {
         try {
-          const quote = await provider.getQuote(params);
+          console.log('🤖 Getting quote from', provider.getName());
+          const quote = await provider.getQuote(params, fromWalletAddress, toWalletAddress);
           return { provider, quote };
         } catch (error) {
           console.warn(`Failed to get quote from ${provider.getName()}:`, error);
@@ -130,25 +129,28 @@ export class BridgeTool extends BaseTool {
       }),
     );
 
-    const validQuotes = quotes.filter((q): q is NonNullable<typeof q> => q !== null);
+    type QuoteResult = { provider: IBridgeProvider; quote: BridgeQuote };
+    const validQuotes = quotes.filter((q): q is QuoteResult => q !== null);
     if (validQuotes.length === 0) {
       throw new Error('No valid quotes found');
     }
 
     // Find the best quote based on amount type
-    return validQuotes.reduce((best, current) => {
+    return validQuotes.reduce((best: QuoteResult, current: QuoteResult) => {
       if (params.type === 'input') {
         // For input amount, find highest output amount
-        const bestAmount = BigInt(Number(best.quote.amount) * 10 ** best.quote.fromTokenDecimals);
+        const bestAmount = BigInt(Number(best.quote.toAmount) * 10 ** best.quote.toToken.decimals);
         const currentAmount = BigInt(
-          Number(current.quote.amount) * 10 ** current.quote.fromTokenDecimals,
+          Number(current.quote.toAmount) * 10 ** current.quote.toToken.decimals,
         );
         return currentAmount > bestAmount ? current : best;
       } else {
         // For output amount, find lowest input amount
-        const bestAmount = BigInt(Number(best.quote.amount) * 10 ** best.quote.toTokenDecimals);
+        const bestAmount = BigInt(
+          Number(best.quote.fromAmount) * 10 ** best.quote.fromToken.decimals,
+        );
         const currentAmount = BigInt(
-          Number(current.quote.amount) * 10 ** current.quote.toTokenDecimals,
+          Number(current.quote.fromAmount) * 10 ** current.quote.fromToken.decimals,
         );
         return currentAmount < bestAmount ? current : best;
       }
@@ -156,6 +158,7 @@ export class BridgeTool extends BaseTool {
   }
 
   createTool(): CustomDynamicStructuredTool {
+    console.log('✓ Creating tool', this.getName());
     return {
       name: this.getName(),
       description: this.getDescription(),
@@ -168,94 +171,146 @@ export class BridgeTool extends BaseTool {
       ) => {
         try {
           const {
-            fromChain,
-            toChain,
+            fromNetwork,
+            toNetwork,
             fromToken,
             toToken,
             amount,
-            type: amountType,
+            amountType,
             provider: preferredProvider,
-            slippage = this.defaultSlippage,
-            //wallet, // wallet
-            walletReceive, // walletReceive
           } = args;
+
+          console.log('🤖 Bridge Args:', args);
+
+          // Validate token addresses
+          if (!validateTokenAddress(fromToken, fromNetwork)) {
+            throw new Error(`Invalid fromToken address for network ${fromNetwork}: ${fromToken}`);
+          }
+          if (!validateTokenAddress(toToken, toNetwork)) {
+            throw new Error(`Invalid toToken address for network ${toNetwork}: ${toToken}`);
+          }
+
           // Get agent's wallet and address
           const wallet = this.agent.getWallet();
-          const fromWalletAddress = await wallet.getAddress(fromChain);
-          const toWalletAddress = await wallet.getAddress(toChain);
+          const fromWalletAddress = await wallet.getAddress(fromNetwork);
+          const toWalletAddress = await wallet.getAddress(toNetwork);
+
+          console.log('🚀 ~ BridgeTool ~ createTool ~ fromWalletAddress:', fromWalletAddress);
+          console.log('🚀 ~ BridgeTool ~ createTool ~ toWalletAddress:', toWalletAddress);
 
           // Validate chain is supported
-          const supportedChains = this.getSupportedChains();
-          if (!supportedChains.includes(fromChain)) {
+          const supportedNetworks = this.getSupportedNetworks();
+          if (!supportedNetworks.includes(fromNetwork)) {
             throw new Error(
-              `Chain ${fromChain} is not supported. Supported chains: ${supportedChains.join(', ')}`,
+              `Network ${fromNetwork} is not supported. Supported networks: ${supportedNetworks.join(', ')}`,
             );
           }
 
           const bridgeParams: BridgeParams = {
-            fromChain, // fromChain
-            toChain, // toChain
-            fromToken: fromToken, // token
-            toToken: toToken, // token
-            amount, // amount
-            type: amountType, // type
-            slippage, // slippage
-            wallet: fromWalletAddress, // wallet
-            walletReceive: toWalletAddress, // walletReceive
+            fromNetwork,
+            toNetwork,
+            fromToken: fromToken,
+            toToken: toToken,
+            amount: amount,
+            type: amountType,
           };
           console.log('🚀 ~ BridgeTool ~ func: ~ bridgeParams:', bridgeParams);
-
-          onProgress?.({
-            progress: 20,
-            message: `Searching for the best bridge rate from ${fromChain} to ${toChain}.`,
-          });
 
           let selectedProvider: IBridgeProvider;
           let quote: BridgeQuote;
 
-          if (preferredProvider) {
-            selectedProvider = this.registry.getProvider(preferredProvider);
-            // Validate provider supports the chain
-            if (!selectedProvider.getSupportedChains().includes(fromChain)) {
-              throw new Error(`Provider ${preferredProvider} does not support chain ${fromChain}`);
-            }
-            quote = await selectedProvider.getQuote(bridgeParams);
-          } else {
-            onProgress?.({
-              progress: 30,
-              message: `Comparing rates across multiple bridge providers.`,
-            });
+          onProgress?.({
+            progress: 0,
+            message: `Searching for the best bridge rate from ${fromNetwork} to ${toNetwork}.`,
+          });
 
-            const bestQuote = await this.findBestQuote({
-              ...bridgeParams,
-              chain: fromChain,
-            });
+          if (preferredProvider) {
+            try {
+              selectedProvider = this.registry.getProvider(preferredProvider);
+              // Validate provider supports the chain
+              if (!selectedProvider.getSupportedNetworks().includes(fromNetwork)) {
+                throw new Error(
+                  `Provider ${preferredProvider} does not support network ${fromNetwork}`,
+                );
+              }
+              quote = await selectedProvider.getQuote(
+                bridgeParams,
+                fromWalletAddress,
+                toWalletAddress,
+              );
+            } catch (error) {
+              console.warn(
+                `Failed to get quote from preferred provider ${preferredProvider}:`,
+                error,
+              );
+              const bestQuote = await this.findBestQuote(
+                {
+                  ...bridgeParams,
+                  network: fromNetwork,
+                },
+                fromWalletAddress,
+                toWalletAddress,
+              );
+              selectedProvider = bestQuote.provider;
+              quote = bestQuote.quote;
+            }
+          } else {
+            const bestQuote = await this.findBestQuote(
+              {
+                ...bridgeParams,
+                network: fromNetwork,
+              },
+              fromWalletAddress,
+              toWalletAddress,
+            );
             selectedProvider = bestQuote.provider;
             quote = bestQuote.quote;
           }
 
           onProgress?.({
+            progress: 10,
+            message: `Verifying you have sufficient ${quote.fromToken.symbol || 'tokens'} for this bridge.`,
+          });
+
+          // Check user's balance before proceeding
+          const balanceCheck = await selectedProvider.checkBalance(quote, fromWalletAddress);
+          if (!balanceCheck.isValid) {
+            throw new Error(balanceCheck.message || 'Insufficient balance for swap');
+          }
+
+          onProgress?.({
+            progress: 30,
+            message: `Preparing to bridge ${quote.fromAmount} ${quote.fromToken.symbol || 'tokens'} for approximately ${quote.toAmount} ${quote.toToken.symbol || 'tokens'} via ${selectedProvider.getName()}.`,
+          });
+
+          // Build bridge transaction call to provider
+          const bridgeTx = await selectedProvider.buildBridgeTransaction(
+            quote,
+            fromWalletAddress,
+            toWalletAddress,
+          );
+
+          //const receipt = await wallet.signAndSendTransaction(fromNetwork, bridgeTx as any);
+          onProgress?.({
             progress: 50,
             message: `Found best rate with ${selectedProvider.getName()}. Preparing bridge transaction.`,
           });
 
-          // Build bridge transaction
-          const bridgeTx = await selectedProvider.buildBridgeTransaction(quote, fromWalletAddress);
           console.log('🚀 ~ BridgeTool ~ func: ~ bridgeTx:', bridgeTx);
 
           onProgress?.({
             progress: 70,
-            message: `Sending bridge transaction to move ${quote.amount} ${quote.fromToken} from ${fromChain} to ${toChain}.`,
+            message: `Sending bridge transaction to move ${quote.fromAmount} ${quote.fromToken} from ${fromNetwork} to ${toNetwork}.`,
           });
 
-          const receipt = await wallet.signAndSendTransaction(fromChain, bridgeTx);
+          const receipt = await wallet.signAndSendTransaction(fromNetwork, bridgeTx as any);
 
           // Wait for transaction to be mined
           const finalReceipt = await receipt?.wait();
 
           onProgress?.({
             progress: 100,
-            message: `Bridge complete! Successfully bridged ${quote.amount} ${quote.fromToken} from ${fromChain} to ${toChain}. Transaction hash: ${finalReceipt?.hash}`,
+            message: `Bridge complete! Successfully bridged ${quote.fromAmount} ${quote.fromToken} from ${fromNetwork} to ${toNetwork}. Transaction hash: ${finalReceipt?.hash}`,
           });
 
           //Return result as JSON string
@@ -263,12 +318,13 @@ export class BridgeTool extends BaseTool {
             provider: selectedProvider.getName(),
             fromToken: quote.fromToken,
             toToken: quote.toToken,
-            amount: quote.amount.toString(),
+            fromAmount: quote.fromAmount.toString(),
+            toAmount: quote.toAmount.toString(),
             transactionHash: finalReceipt?.hash,
             priceImpact: quote.priceImpact,
             type: quote.type,
-            fromChain,
-            toChain,
+            fromNetwork,
+            toNetwork,
           });
         } catch (error) {
           console.error('🚀 ~ BridgeTool ~ func: ~ error:', error);
