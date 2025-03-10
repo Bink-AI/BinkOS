@@ -61,17 +61,10 @@ export function getEvmProviderForNetwork(
  * @returns The Solana provider for the specified network
  * @throws Error if the network is not supported or if it's not a Solana network
  */
-export function getSolanaProviderForNetwork(
-  providers: Map<NetworkName, NetworkProvider>,
-  network: NetworkName,
-  providerName: string,
-): Connection {
-  const provider = providers.get(network);
+export function getSolanaProviderForNetwork(network: NetworkName): Connection {
+  const provider = new Connection('https://api.mainnet-beta.solana.com');
   if (!provider) {
-    throw new Error(`Network ${network} is not supported by ${providerName}`);
-  }
-  if (!isSolanaProvider(provider)) {
-    throw new Error(`Network ${network} does not have a Solana provider`);
+    throw new Error(`Network ${network} is not supported `);
   }
   return provider;
 }

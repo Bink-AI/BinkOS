@@ -1,7 +1,18 @@
-import { EVM_NATIVE_TOKEN_ADDRESS, NetworkName, Token } from '@binkai/core';
+import {
+  EVM_NATIVE_TOKEN_ADDRESS,
+  NetworkName,
+  SOL_NATIVE_TOKEN_ADDRESS,
+  SOL_NATIVE_TOKEN_ADDRESS2,
+  Token,
+} from '@binkai/core';
 import { ethers, Contract, Interface, Provider } from 'ethers';
-import { Connection } from '@solana/web3.js';
-import { getEvmProviderForNetwork, isSolanaNetwork, validateNetwork } from './networkUtils';
+import { Connection, PublicKey } from '@solana/web3.js';
+import {
+  getEvmProviderForNetwork,
+  getSolanaProviderForNetwork,
+  isSolanaNetwork,
+  validateNetwork,
+} from './networkUtils';
 
 // Default cache TTL (30 minutes)
 export const DEFAULT_CACHE_TTL = 30 * 60 * 1000;
@@ -36,6 +47,32 @@ export async function getTokenInfo(
   };
 }
 
+export async function getTokenInfoSolana(
+  tokenAddress: string,
+  network: NetworkName,
+): Promise<Token> {
+  const connection = getSolanaProviderForNetwork(network);
+  const tokenMint = new PublicKey(tokenAddress);
+  const tokenInfo = await connection.getParsedAccountInfo(tokenMint);
+
+  if (!tokenInfo.value || !('parsed' in tokenInfo.value.data)) {
+    throw new Error(`Invalid token info for ${tokenAddress} on ${network}`);
+  }
+
+  const parsedData = tokenInfo.value.data.parsed;
+  if (!('info' in parsedData)) {
+    throw new Error(`Missing token info for ${tokenAddress}`);
+  }
+
+  const { decimals, symbol } = parsedData.info;
+
+  return {
+    address: tokenAddress,
+    decimals: Number(decimals),
+    symbol,
+  };
+}
+
 /**
  * Creates a token cache manager
  * @param cacheTTL The time-to-live for cache entries in milliseconds
@@ -63,7 +100,40 @@ export function createTokenCache(cacheTTL: number = DEFAULT_CACHE_TTL) {
 
       if (isSolanaNetwork(network)) {
         // TODO: Implement Solana
-        throw new Error('Solana not implemented yet');
+        //throw new Error('Solana not implemented yet');
+
+        const now = Date.now();
+        const cacheKey = `${network}:${tokenAddress}`;
+        const cached = tokenCache.get(cacheKey);
+
+        if (cached && now - cached.timestamp < cacheTTL) {
+          return cached.token;
+        }
+
+        console.log('🤖 getToken Solana ', tokenAddress);
+
+        const connection = getSolanaProviderForNetwork(network);
+        //const connection = new Connection(network);
+        const tokenMint = new PublicKey(tokenAddress);
+        const tokenInfo = await connection.getParsedAccountInfo(tokenMint);
+
+        if (!tokenInfo.value || !('parsed' in tokenInfo.value.data)) {
+          throw new Error(`Invalid token info for ${tokenAddress} on ${network}`);
+        }
+
+        const parsedData = tokenInfo.value.data.parsed;
+        if (!('info' in parsedData)) {
+          throw new Error(`Missing token info for ${tokenAddress}`);
+        }
+
+        const { decimals, symbol } = parsedData.info;
+        const token = {
+          address: tokenAddress,
+          decimals: Number(decimals),
+          symbol,
+        };
+        tokenCache.set(cacheKey, { token, timestamp: now });
+        return token;
       }
 
       const now = Date.now();
@@ -147,11 +217,6 @@ export function createTokenBalanceCache(balanceCacheTTL: number = DEFAULT_BALANC
     ): Promise<{ balance: bigint; formattedBalance: string }> {
       validateNetwork(Array.from(providers.keys()), providers, network, providerName);
 
-      if (isSolanaNetwork(network)) {
-        // TODO: Implement Solana
-        throw new Error('Solana not implemented yet');
-      }
-
       const now = Date.now();
       const cacheKey = `${network}:${tokenAddress}:${walletAddress}`;
       const cached = balanceCache.get(cacheKey);
@@ -161,6 +226,51 @@ export function createTokenBalanceCache(balanceCacheTTL: number = DEFAULT_BALANC
         return {
           balance: cached.balance,
           formattedBalance: cached.formattedBalance,
+        };
+      }
+
+      if (isSolanaNetwork(network)) {
+        // TODO: Implement Solana
+        //throw new Error('Solana not implemented yet');
+
+        const provider = getSolanaProviderForNetwork(network);
+        //const provider = new Connection(network);
+        const isNative =
+          tokenAddress.toLowerCase() === SOL_NATIVE_TOKEN_ADDRESS.toLowerCase() ||
+          tokenAddress.toLowerCase() === SOL_NATIVE_TOKEN_ADDRESS2.toLowerCase();
+        const wallet = new PublicKey(walletAddress);
+        const tokenMint = new PublicKey(tokenAddress);
+        let rawBalance;
+        let decimals;
+        if (isNative) {
+          // For native tokens
+          decimals = 9;
+          rawBalance = await provider.getBalance(wallet);
+        } else {
+          const tokenAccounts = await provider.getParsedTokenAccountsByOwner(wallet, {
+            mint: tokenMint,
+          });
+
+          const mintInfo = await provider.getParsedAccountInfo(tokenMint);
+
+          if (!mintInfo.value || !('parsed' in mintInfo.value.data)) {
+            throw new Error('Invalid mint account');
+          }
+
+          decimals = mintInfo?.value?.data?.parsed?.info?.decimals;
+          rawBalance = tokenAccounts?.value[0]?.account?.data?.parsed?.info?.tokenAmount?.amount;
+        }
+        const balance = ethers.formatUnits(rawBalance, decimals);
+        // Cache the result
+        balanceCache.set(cacheKey, {
+          balance: BigInt(rawBalance),
+          formattedBalance: balance,
+          timestamp: now,
+        });
+
+        return {
+          balance: BigInt(rawBalance),
+          formattedBalance: balance,
         };
       }
 

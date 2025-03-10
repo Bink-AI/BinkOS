@@ -5,6 +5,7 @@ import { ProviderRegistry } from './ProviderRegistry';
 import { ISwapProvider, SwapQuote, SwapParams } from './types';
 import { validateTokenAddress } from './utils/addressValidation';
 import { parseTokenAmount } from './utils/tokenUtils';
+import { isSolanaNetwork } from './utils/networkUtils';
 
 export interface SwapToolConfig extends IToolConfig {
   defaultSlippage?: number;
@@ -293,57 +294,63 @@ export class SwapTool extends BaseTool {
             progress: 40,
             message: `Checking allowance... Verifying if approval is needed for ${selectedProvider.getName()} to access your ${quote.fromToken.symbol || 'tokens'}.`,
           });
-          // Check if approval is needed and handle it
-          const allowance = await selectedProvider.checkAllowance(
-            network,
-            quote.fromToken.address,
-            userAddress,
-            swapTx.spender,
-          );
 
-          const requiredAmount = parseTokenAmount(quote.fromAmount, quote.fromToken.decimals);
-
-          console.log('🤖 Allowance: ', allowance, ' Required amount: ', requiredAmount);
-
-          if (allowance < requiredAmount) {
-            const approveTx = await selectedProvider.buildApproveTransaction(
+          if (!isSolanaNetwork(network)) {
+            // Check if approval is needed and handle it
+            const allowance = await selectedProvider.checkAllowance(
               network,
               quote.fromToken.address,
-              swapTx.spender,
-              quote.fromAmount,
               userAddress,
+              swapTx.spender,
             );
-            console.log('🤖 Approving...');
-            // Sign and send approval transaction
-            onProgress?.({
-              progress: 60,
-              message: `Approving ${selectedProvider.getName()} to access your ${quote.fromToken.symbol || 'tokens'}`,
-            });
-            const approveReceipt = await wallet.signAndSendTransaction(network, {
-              to: approveTx.to,
-              data: approveTx.data,
-              value: BigInt(approveTx.value),
-            });
 
-            console.log('🤖 ApproveReceipt:', approveReceipt);
+            const requiredAmount = parseTokenAmount(quote.fromAmount, quote.fromToken.decimals);
 
-            // Wait for approval to be mined
-            await approveReceipt.wait();
+            console.log('🤖 Allowance: ', allowance, ' Required amount: ', requiredAmount);
+
+            if (allowance < requiredAmount) {
+              const approveTx = await selectedProvider.buildApproveTransaction(
+                network,
+                quote.fromToken.address,
+                swapTx.spender,
+                quote.fromAmount,
+                userAddress,
+              );
+              console.log('🤖 Approving...');
+              // Sign and send approval transaction
+              onProgress?.({
+                progress: 60,
+                message: `Approving ${selectedProvider.getName()} to access your ${quote.fromToken.symbol || 'tokens'}`,
+              });
+              const approveReceipt = await wallet.signAndSendTransaction(network, {
+                to: approveTx.to,
+                data: approveTx.data,
+                value: BigInt(approveTx.value),
+              });
+
+              console.log('🤖 ApproveReceipt:', approveReceipt);
+
+              // Wait for approval to be mined
+              await approveReceipt.wait();
+            }
           }
+
           console.log('🤖 Swapping...');
 
           onProgress?.({
             progress: 80,
             message: `Swapping ${quote.fromAmount} ${quote.fromToken.symbol || 'tokens'} for approximately ${quote.toAmount} ${quote.toToken.symbol || 'tokens'} with ${slippage}% max slippage.`,
           });
+          console.log('🤖 swapTx', swapTx);
           // Sign and send swap transaction
           const receipt = await wallet.signAndSendTransaction(network, {
             to: swapTx.to,
             data: swapTx.data,
             value: BigInt(swapTx.value),
           });
+
           // Wait for transaction to be mined
-          const finalReceipt = await receipt.wait();
+          const finalReceipt = await receipt?.wait();
 
           try {
             // Clear token balance caches after successful swap

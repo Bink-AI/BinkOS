@@ -20,7 +20,8 @@
     "knowledge": "ts-node src/knowledge-example.ts",
     "wallet": "ts-node src/wallet-example.ts",
     "transfer": "ts-node src/transfer-example.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "swap-jupiter": "ts-node src/swap-example-jupiter.ts"
   },
   "dependencies": {
     "@binkai/core": "workspace:*",
@@ -47,7 +48,8 @@
     "axios": "^1.6.7",
     "@binkai/bridge-plugin": "workspace:*",
     "@binkai/debridge-provider": "workspace:*",
-    "@coral-xyz/anchor": "^0.30.1"
+    "@coral-xyz/anchor": "^0.30.1",
+    "@binkai/jupiter-provider": "workspace:*"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",

@@ -46,13 +46,6 @@ export abstract class BaseBridgeProvider implements IBridgeProvider {
       if (!supportedNetworks.includes(network)) {
         throw new Error(`Networkk ${network} is not supported by ${this.getName()}`);
       }
-      // Validate provider type based on network
-      if (this.isSolanaNetwork(network) && !(provider instanceof Connection)) {
-        throw new Error(`Invalid provider type for Solana network ${network}`);
-      }
-      if (!this.isSolanaNetwork(network) && !this.isProviderInstance(provider)) {
-        throw new Error(`Invalid provider type for EVM network ${network}`);
-      }
     }
     this.providers = providerConfig;
 

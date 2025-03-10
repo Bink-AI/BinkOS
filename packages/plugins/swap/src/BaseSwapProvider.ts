@@ -1,7 +1,13 @@
-import { EVM_NATIVE_TOKEN_ADDRESS, NetworkName, Token } from '@binkai/core';
+import {
+  EVM_NATIVE_TOKEN_ADDRESS,
+  NetworkName,
+  SOL_NATIVE_TOKEN_ADDRESS,
+  SOL_NATIVE_TOKEN_ADDRESS2,
+  Token,
+} from '@binkai/core';
 import { ISwapProvider, SwapQuote, SwapParams, Transaction, NetworkProvider } from './types';
 import { ethers, Contract, Interface, Provider } from 'ethers';
-import { Connection } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
 import {
   adjustTokenAmount,
   isWithinTolerance,
@@ -49,12 +55,12 @@ export abstract class BaseSwapProvider implements ISwapProvider {
         throw new Error(`Network ${network} is not supported by ${this.getName()}`);
       }
       // Validate provider type based on network
-      if (isSolanaNetwork(network) && !isSolanaProvider(provider)) {
-        throw new Error(`Invalid provider type for Solana network ${network}`);
-      }
-      if (!isSolanaNetwork(network) && !isProviderInstance(provider)) {
-        throw new Error(`Invalid provider type for EVM network ${network}`);
-      }
+      // if (isSolanaNetwork(network) && !isSolanaProvider(provider)) {
+      //   throw new Error(`Invalid provider type for Solana network ${network}`);
+      // }
+      // if (!isSolanaNetwork(network) && !isProviderInstance(provider)) {
+      //   throw new Error(`Invalid provider type for EVM network ${network}`);
+      // }
     }
     this.providers = providerConfig;
 
@@ -96,7 +102,7 @@ export abstract class BaseSwapProvider implements ISwapProvider {
    * @throws Error if the network is not supported or if it's not a Solana network
    */
   protected getSolanaProviderForNetwork(network: NetworkName): Connection {
-    return getSolanaProvider(this.providers, network, this.getName());
+    return getSolanaProvider(network);
   }
 
   /**
@@ -164,6 +170,75 @@ export abstract class BaseSwapProvider implements ISwapProvider {
    * @param network The network to use
    * @returns The adjusted amount after accounting for gas buffer
    */
+  // protected async adjustNativeTokenAmount(
+  //   amount: string,
+  //   decimals: number,
+  //   walletAddress: string,
+  //   network: NetworkName,
+  // ): Promise<string> {
+  //   this.validateNetwork(network);
+  //   if (isSolanaNetwork(network)) {
+  //     // TODO: Implement Solana
+  //     console.log('🤖 swap isSolanaNetwork');
+  //   }
+
+  //   console.log('network', network);
+
+  //   const amountBN = parseTokenAmount(amount, decimals);
+  //   const gasBuffer = this.getGasBuffer(network);
+
+  //   // Get balance using the cache
+  //   const { balance } = await this.getTokenBalance(
+  //     network === NetworkName.SOLANA ? SOL_NATIVE_TOKEN_ADDRESS : EVM_NATIVE_TOKEN_ADDRESS,
+  //     walletAddress,
+  //     network,
+  //   );
+
+  //   // Check if user has enough balance for both amount and gas
+  //   if (balance < amountBN + gasBuffer) {
+  //     throw new Error(
+  //       `Insufficient balance. You need at least ${ethers.formatEther(amountBN + gasBuffer)} native token to cover amount + gas`,
+  //     );
+  //   }
+
+  //   // Calculate maximum amount user can spend (balance - gas buffer)
+  //   const maxSpendableBN = balance > gasBuffer ? balance - gasBuffer : BigInt(0);
+  //   const maxSpendable = ethers.formatUnits(maxSpendableBN, decimals);
+
+  //   // Use adjustTokenAmount utility to handle precision issues
+  //   const adjustedAmount = adjustTokenAmount(
+  //     amount,
+  //     maxSpendable,
+  //     decimals,
+  //     this.TOLERANCE_PERCENTAGE,
+  //   );
+
+  //   // If the amount was adjusted, log it
+  //   if (adjustedAmount !== amount) {
+  //     console.log(
+  //       '🤖 Adjusted native token amount:',
+  //       adjustedAmount,
+  //       '(adjusted for available balance)',
+  //     );
+  //   } else if (maxSpendableBN < amountBN) {
+  //     // If amount wasn't adjusted but user doesn't have enough balance, reduce to max spendable
+  //     console.log(
+  //       '🤖 Adjusted amount for gas buffer:',
+  //       maxSpendable,
+  //       `(insufficient balance for full amount + ${ethers.formatEther(gasBuffer)} gas)`,
+  //     );
+  //     return maxSpendable;
+  //   } else {
+  //     console.log(
+  //       '🤖 Using full amount:',
+  //       amount,
+  //       `(sufficient balance for amount + ${ethers.formatEther(gasBuffer)} gas)`,
+  //     );
+  //   }
+
+  //   return adjustedAmount;
+  // }
+
   protected async adjustNativeTokenAmount(
     amount: string,
     decimals: number,
@@ -171,63 +246,45 @@ export abstract class BaseSwapProvider implements ISwapProvider {
     network: NetworkName,
   ): Promise<string> {
     this.validateNetwork(network);
+    let balance;
+    let amountBN;
     if (isSolanaNetwork(network)) {
-      // TODO: Implement Solana
+      const provider = this.getSolanaProviderForNetwork(network);
+      amountBN = ethers.parseUnits(amount, decimals);
+      balance = await provider.getBalance(new PublicKey(walletAddress));
+    } else {
+      const provider = this.getEvmProviderForNetwork(network);
+      amountBN = ethers.parseUnits(amount, decimals);
+      balance = await provider.getBalance(walletAddress);
     }
 
-    const amountBN = parseTokenAmount(amount, decimals);
     const gasBuffer = this.getGasBuffer(network);
 
-    // Get balance using the cache
-    const { balance } = await this.getTokenBalance(
-      EVM_NATIVE_TOKEN_ADDRESS,
-      walletAddress,
-      network,
-    );
-
-    // Check if user has enough balance for both amount and gas
+    // Check if user has enough balance for amount + gas buffer
     if (balance < amountBN + gasBuffer) {
-      throw new Error(
-        `Insufficient balance. You need at least ${ethers.formatEther(amountBN + gasBuffer)} native token to cover amount + gas`,
-      );
-    }
-
-    // Calculate maximum amount user can spend (balance - gas buffer)
-    const maxSpendableBN = balance > gasBuffer ? balance - gasBuffer : BigInt(0);
-    const maxSpendable = ethers.formatUnits(maxSpendableBN, decimals);
-
-    // Use adjustTokenAmount utility to handle precision issues
-    const adjustedAmount = adjustTokenAmount(
-      amount,
-      maxSpendable,
-      decimals,
-      this.TOLERANCE_PERCENTAGE,
-    );
-
-    // If the amount was adjusted, log it
-    if (adjustedAmount !== amount) {
-      console.log(
-        '🤖 Adjusted native token amount:',
-        adjustedAmount,
-        '(adjusted for available balance)',
-      );
-    } else if (maxSpendableBN < amountBN) {
-      // If amount wasn't adjusted but user doesn't have enough balance, reduce to max spendable
+      // If not enough balance for both, ensure at least gas buffer is available
+      if (amountBN <= gasBuffer) {
+        throw new Error(
+          `Amount too small. Minimum amount should be greater than ${ethers.formatEther(gasBuffer)} native token to cover gas`,
+        );
+      }
+      // Subtract gas buffer from amount
+      const adjustedAmountBN = amountBN - gasBuffer;
+      const adjustedAmount = ethers.formatUnits(adjustedAmountBN, decimals);
       console.log(
         '🤖 Adjusted amount for gas buffer:',
-        maxSpendable,
+        adjustedAmount,
         `(insufficient balance for full amount + ${ethers.formatEther(gasBuffer)} gas)`,
       );
-      return maxSpendable;
-    } else {
-      console.log(
-        '🤖 Using full amount:',
-        amount,
-        `(sufficient balance for amount + ${ethers.formatEther(gasBuffer)} gas)`,
-      );
+      return adjustedAmount;
     }
 
-    return adjustedAmount;
+    console.log(
+      '🤖 Using full amount:',
+      amount,
+      `(sufficient balance for amount + ${ethers.formatEther(gasBuffer)} gas)`,
+    );
+    return amount;
   }
 
   protected async getTokenInfo(tokenAddress: string, network: NetworkName): Promise<Token> {
@@ -263,64 +320,141 @@ export abstract class BaseSwapProvider implements ISwapProvider {
 
       this.validateNetwork(quote.network);
       if (isSolanaNetwork(quote.network)) {
-        // TODO: Implement Solana
-      }
+        const provider = this.getSolanaProviderForNetwork(quote.network);
 
-      const tokenToCheck = quote.fromToken;
-      const requiredAmount = parseTokenAmount(quote.fromAmount, quote.fromToken.decimals);
-      const gasBuffer = this.getGasBuffer(quote.network);
-
-      // Check if the token is native token
-      const isNativeToken = this.isNativeToken(tokenToCheck.address);
-
-      if (isNativeToken) {
-        // Get native token balance using the cache
-        const { balance } = await this.getTokenBalance(
-          EVM_NATIVE_TOKEN_ADDRESS,
-          walletAddress,
-          quote.network,
+        const tokenToCheck = quote.fromToken;
+        const requiredAmount = BigInt(
+          Math.floor(parseFloat(quote.fromAmount) * Math.pow(10, quote.fromToken.decimals)),
         );
-        const totalRequired = requiredAmount + gasBuffer;
 
-        // Check if balance is sufficient with tolerance
-        if (!isWithinTolerance(totalRequired, balance, this.TOLERANCE_PERCENTAGE)) {
-          const formattedBalance = ethers.formatEther(balance);
-          const formattedRequired = ethers.formatEther(requiredAmount);
-          const formattedTotal = ethers.formatEther(totalRequired);
-          return {
-            isValid: false,
-            message: `Insufficient native token balance. Required: ${formattedRequired} (+ ~${ethers.formatEther(gasBuffer)} for gas = ${formattedTotal}), Available: ${formattedBalance}`,
-          };
+        const gasBuffer = this.getGasBuffer(quote.network);
+
+        // Check if the token is native SOL
+        const isNativeToken = this.isNativeSolana(tokenToCheck.address);
+
+        if (isNativeToken) {
+          // For native SOL, just check the wallet balance directly
+          const balance = await provider.getBalance(new PublicKey(walletAddress));
+          const totalRequired = requiredAmount + gasBuffer;
+
+          if (BigInt(balance) < totalRequired) {
+            const formattedBalance = (Number(balance) / Math.pow(10, 9)).toFixed(9);
+            const formattedRequired = (Number(requiredAmount) / Math.pow(10, 9)).toFixed(9);
+            const formattedTotal = (Number(totalRequired) / Math.pow(10, 9)).toFixed(9);
+            return {
+              isValid: false,
+              message: `Insufficient SOL balance. Required: ${formattedRequired} (+ ~${(Number(gasBuffer) / Math.pow(10, 9)).toFixed(9)} for gas = ${formattedTotal}), Available: ${formattedBalance}`,
+            };
+          }
+          return { isValid: true };
+        } else {
+          // For SPL tokens
+          const connection = new Connection('https://api.mainnet-beta.solana.com');
+          const tokenAccount = await connection.getParsedTokenAccountsByOwner(
+            new PublicKey(walletAddress),
+            {
+              mint: new PublicKey(quote.fromToken.address),
+            },
+          );
+          const mintInfo = await provider.getParsedAccountInfo(
+            new PublicKey(quote.fromToken.address),
+          );
+
+          if (!mintInfo.value || !('parsed' in mintInfo.value.data)) {
+            return {
+              isValid: false,
+              message: `Invalid token address: ${quote.fromToken.address}`,
+            };
+          }
+
+          if (tokenAccount.value.length === 0) {
+            return {
+              isValid: false,
+              message: `No token account found for ${tokenToCheck.symbol}`,
+            };
+          }
+
+          const balance = BigInt(tokenAccount.value[0].account.data.parsed.info.tokenAmount.amount);
+
+          if (balance < requiredAmount) {
+            const formattedBalance = ethers.formatUnits(balance, quote.fromToken.decimals);
+            const formattedRequired = ethers.formatUnits(requiredAmount, quote.fromToken.decimals);
+
+            return {
+              isValid: false,
+              message: `Insufficient ${tokenToCheck.symbol ? tokenToCheck.symbol : ''} balance. Required: ${formattedRequired} ${tokenToCheck.symbol ? tokenToCheck.symbol : ''}, Available: ${formattedBalance} ${tokenToCheck.symbol ? tokenToCheck.symbol : ''}`,
+            };
+          }
+
+          // Check if user has enough SOL for gas
+          const nativeBalance = await provider.getBalance(new PublicKey(walletAddress));
+          if (BigInt(nativeBalance) < gasBuffer) {
+            const formattedBalance = ethers.formatUnits(nativeBalance, 9);
+            return {
+              isValid: false,
+              message: `Insufficient SOL for gas fees. Required: ~${ethers.formatUnits(gasBuffer, 9)}, Available: ${formattedBalance}`,
+            };
+          }
         }
+
+        return { isValid: true };
       } else {
-        // For other tokens, check ERC20 balance using the cache
-        const { balance, formattedBalance } = await this.getTokenBalance(
-          tokenToCheck.address,
-          walletAddress,
-          quote.network,
-        );
+        const tokenToCheck = quote.fromToken;
+        const requiredAmount = parseTokenAmount(quote.fromAmount, quote.fromToken.decimals);
+        const gasBuffer = this.getGasBuffer(quote.network);
 
-        // Check if balance is sufficient with tolerance
-        if (!isWithinTolerance(requiredAmount, balance, this.TOLERANCE_PERCENTAGE)) {
-          const formattedRequired = ethers.formatUnits(requiredAmount, quote.fromToken.decimals);
-          return {
-            isValid: false,
-            message: `Insufficient ${quote.fromToken.symbol} balance. Required: ${formattedRequired} ${quote.fromToken.symbol}, Available: ${formattedBalance} ${quote.fromToken.symbol}`,
-          };
-        }
+        // Check if the token is native token
+        const isNativeToken = this.isNativeToken(tokenToCheck.address);
 
-        // Check if user has enough native token for gas using the cache
-        const { balance: nativeBalance } = await this.getTokenBalance(
-          EVM_NATIVE_TOKEN_ADDRESS,
-          walletAddress,
-          quote.network,
-        );
-        if (nativeBalance < gasBuffer) {
-          const formattedBalance = ethers.formatEther(nativeBalance);
-          return {
-            isValid: false,
-            message: `Insufficient native token for gas fees. Required: ~${ethers.formatEther(gasBuffer)}, Available: ${formattedBalance}`,
-          };
+        if (isNativeToken) {
+          // Get native token balance using the cache
+          const { balance } = await this.getTokenBalance(
+            EVM_NATIVE_TOKEN_ADDRESS,
+            walletAddress,
+            quote.network,
+          );
+          const totalRequired = requiredAmount + gasBuffer;
+
+          // Check if balance is sufficient with tolerance
+          if (!isWithinTolerance(totalRequired, balance, this.TOLERANCE_PERCENTAGE)) {
+            const formattedBalance = ethers.formatEther(balance);
+            const formattedRequired = ethers.formatEther(requiredAmount);
+            const formattedTotal = ethers.formatEther(totalRequired);
+            return {
+              isValid: false,
+              message: `Insufficient native token balance. Required: ${formattedRequired} (+ ~${ethers.formatEther(gasBuffer)} for gas = ${formattedTotal}), Available: ${formattedBalance}`,
+            };
+          }
+        } else {
+          // For other tokens, check ERC20 balance using the cache
+          const { balance, formattedBalance } = await this.getTokenBalance(
+            tokenToCheck.address,
+            walletAddress,
+            quote.network,
+          );
+
+          // Check if balance is sufficient with tolerance
+          if (!isWithinTolerance(requiredAmount, balance, this.TOLERANCE_PERCENTAGE)) {
+            const formattedRequired = ethers.formatUnits(requiredAmount, quote.fromToken.decimals);
+            return {
+              isValid: false,
+              message: `Insufficient ${quote.fromToken.symbol} balance. Required: ${formattedRequired} ${quote.fromToken.symbol}, Available: ${formattedBalance} ${quote.fromToken.symbol}`,
+            };
+          }
+
+          // Check if user has enough native token for gas using the cache
+          const { balance: nativeBalance } = await this.getTokenBalance(
+            EVM_NATIVE_TOKEN_ADDRESS,
+            walletAddress,
+            quote.network,
+          );
+          if (nativeBalance < gasBuffer) {
+            const formattedBalance = ethers.formatEther(nativeBalance);
+            return {
+              isValid: false,
+              message: `Insufficient native token for gas fees. Required: ~${ethers.formatEther(gasBuffer)}, Available: ${formattedBalance}`,
+            };
+          }
         }
       }
 
@@ -467,8 +601,9 @@ export abstract class BaseSwapProvider implements ISwapProvider {
 
       // Check if it's a native token
       const isNativeToken = this.isNativeToken(tokenAddress);
+      const isNativeSolana = this.isNativeSolana(tokenAddress);
 
-      if (isNativeToken) {
+      if (isNativeToken || isNativeSolana) {
         // For native tokens, use adjustNativeTokenAmount which handles gas buffer
         return this.adjustNativeTokenAmount(amount, decimals, walletAddress, network);
       } else {
@@ -487,6 +622,13 @@ export abstract class BaseSwapProvider implements ISwapProvider {
       // In case of any error, return the original amount
       return amount;
     }
+  }
+
+  private isNativeSolana(tokenAddress: string): boolean {
+    return (
+      tokenAddress.toLowerCase() === SOL_NATIVE_TOKEN_ADDRESS.toLowerCase() ||
+      tokenAddress.toLowerCase() === SOL_NATIVE_TOKEN_ADDRESS2.toLowerCase()
+    );
   }
 
   /**
