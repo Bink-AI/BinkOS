@@ -245,14 +245,11 @@ export class HyperliquidProvider extends BaseSwapProvider {
         throw new Error(`Order placement failed: ${orderStatus.error}`);
       }
 
-      if (!orderStatus.resting?.oid) {
-        throw new Error('Order placed but no order ID returned');
-      }
 
       // Return transaction object
       return {
         to: quote.tx?.to || '',
-        data: orderStatus.resting.oid,
+        data: orderStatus?.resting?.oid || '',
         value: '0',
         spender: quote.tx?.spender || '',
         network: quote.network,

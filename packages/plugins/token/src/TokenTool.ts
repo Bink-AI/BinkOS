@@ -143,38 +143,6 @@ export class GetTokenInfoTool extends BaseTool {
     return address.toLowerCase();
   }
 
-  // Convert native token symbols to wrapped token symbols
-  private convertNativeSymbolToWrapped(
-    symbol: string,
-    network: string,
-  ): { symbol: string; network: NetworkName } {
-    // Normalize the symbol for comparison
-    const normalizedSymbol = symbol.toUpperCase();
-
-    // Convert native token symbols to wrapped versions based on network
-    if (normalizedSymbol === 'BNB') {
-      if (network === 'null') {
-        return { symbol: 'WBNB', network: NetworkName.BNB };
-      } else {
-        return { symbol: 'WBNB', network: network as NetworkName };
-      }
-    } else if (normalizedSymbol === 'BTC') {
-      if (network === 'null') {
-        return { symbol: 'WBTC', network: NetworkName.ETHEREUM };
-      } else {
-        return { symbol: 'WBTC', network: network as NetworkName };
-      }
-    } else if (normalizedSymbol === 'ETH') {
-      if (network === 'null') {
-        return { symbol: 'WETH', network: NetworkName.ETHEREUM };
-      } else {
-        return { symbol: 'WETH', network: network as NetworkName };
-      }
-    }
-
-    // Return original symbol if no conversion needed
-    return { symbol: symbol, network: network as NetworkName };
-  }
 
   // Get cache key for token
   private getCacheKey(address: string, network: NetworkName): string {
@@ -417,20 +385,7 @@ export class GetTokenInfoTool extends BaseTool {
       const response = await fetch('https://api-ui.hyperliquid.xyz/info', {
         method: 'POST',
         headers: {
-          Accept: '*/*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          Connection: 'keep-alive',
           'Content-Type': 'application/json',
-          Origin: 'https://app.hyperliquid.xyz',
-          Referer: 'https://app.hyperliquid.xyz/',
-          'Sec-Fetch-Dest': 'empty',
-          'Sec-Fetch-Mode': 'cors',
-          'Sec-Fetch-Site': 'same-site',
-          'User-Agent':
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
-          'sec-ch-ua': '"Chromium";v="136", "Google Chrome";v="136", "Not.A/Brand";v="99"',
-          'sec-ch-ua-mobile': '?0',
-          'sec-ch-ua-platform': '"Linux"',
         },
         body: JSON.stringify({
           type: 'spotMeta',
@@ -520,13 +475,7 @@ export class GetTokenInfoTool extends BaseTool {
           // check if query is an address
           const isAddress = this.isAddress(query);
           if (!isAddress) {
-            const { symbol, network: newNetwork } = this.convertNativeSymbolToWrapped(
-              query,
-              network,
-            );
-            query = symbol;
-            network = newNetwork;
-            logger.info(`🔍 Converted to wrapped token: ${query} on ${network} network`);
+            throw new Error(`Invalid token address: ${query}`);
           }
 
           onProgress?.({
