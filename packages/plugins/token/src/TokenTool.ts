@@ -375,10 +375,6 @@ export class GetTokenInfoTool extends BaseTool {
     }
   }
 
-  private isAddress(query: string): boolean {
-    // Basic address validation - can be enhanced based on network requirements
-    return /^[0-9a-zA-Z]{32,44}$/.test(query);
-  }
 
   async findHyperLiquidToken(query: string, network: NetworkName): Promise<TokenInfo> {
     try {
@@ -472,11 +468,6 @@ export class GetTokenInfoTool extends BaseTool {
             }
           }
 
-          // check if query is an address
-          const isAddress = this.isAddress(query);
-          if (!isAddress) {
-            throw new Error(`Invalid token address: ${query}`);
-          }
 
           onProgress?.({
             progress: 20,
