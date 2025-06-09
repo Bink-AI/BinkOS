@@ -1,6 +1,6 @@
 {
   "name": "@binkai/bridge-plugin",
-  "version": "0.3.4-alpha.2",
+  "version": "0.3.4-alpha.3",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {
