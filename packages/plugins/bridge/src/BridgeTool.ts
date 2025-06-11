@@ -367,8 +367,6 @@ export class BridgeTool extends BaseTool {
             message: `Found best rate with ${selectedProvider.getName()}. Preparing bridge transaction.`,
           });
 
-          logger.info('🚀 ~ BridgeTool ~ func: ~ bridgeTx:', bridgeTx);
-
           onProgress?.({
             progress: 70,
             message: `Sending bridge transaction to move ${quote.fromAmount} ${quote.fromToken.symbol} from ${fromNetwork} to ${toNetwork}.`,

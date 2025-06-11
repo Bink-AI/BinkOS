@@ -1,10 +1,8 @@
 import { BaseBridgeProvider, parseTokenAmount } from '@binkai/bridge-plugin';
-
-import { Provider, ethers, Contract, Interface } from 'ethers';
+import { Provider, ethers } from 'ethers';
 import axios from 'axios';
-import { clusterApiUrl, Connection, VersionedTransaction } from '@solana/web3.js';
+import { Connection, VersionedTransaction } from '@solana/web3.js';
 import {
-  Addresses,
   ChainID,
   MAPPING_CHAIN_ID,
   MAPPING_TOKEN,
@@ -12,8 +10,6 @@ import {
   SupportedChain,
   SupportedToken,
   SupportedTokenTaker,
-  TokenInfo,
-  Tokens,
 } from './utils';
 import {
   EVM_NATIVE_TOKEN_ADDRESS,
@@ -52,10 +48,6 @@ export class deBridgeProvider extends BaseBridgeProvider {
   getSupportedNetworks(): NetworkName[] {
     return [NetworkName.BNB, NetworkName.SOLANA];
   }
-
-  // getPrompt(): string {
-  //   return `If you are using deBridge, You can use BNB with address ${Tokens.BNB}, and you can use solana with address ${Tokens.SOL}`;
-  // }
 
   protected isNativeToken(tokenAddress: string): boolean {
     return tokenAddress.toLowerCase() === EVM_NATIVE_TOKEN_ADDRESS.toLowerCase();
@@ -116,7 +108,6 @@ export class deBridgeProvider extends BaseBridgeProvider {
       let adjustedAmount = params.amount;
 
       if (params.type === 'input') {
-        // Use the adjustAmount method for all tokens (both native and ERC20)
         adjustedAmount = await this.adjustAmount(
           params.fromToken,
           params.amount,
@@ -131,7 +122,6 @@ export class deBridgeProvider extends BaseBridgeProvider {
         }
       }
 
-      // build bridge data
       const bridgeData = await this.buildBridgeData(
         params,
         fromWalletAddress,
@@ -140,7 +130,7 @@ export class deBridgeProvider extends BaseBridgeProvider {
         tokenOut,
         adjustedAmount,
       );
-      // calculate amount out
+
       // Generate a unique quote ID
       const quoteId = ethers.hexlify(ethers.randomBytes(32));
       const quote: BridgeQuote = {
