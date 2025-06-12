@@ -1,6 +1,6 @@
 {
   "name": "@binkai/relay-provider",
-  "version": "0.3.4-alpha.2",
+  "version": "0.3.5-alpha.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": {
@@ -22,9 +22,9 @@
   "dependencies": {
     "@binkai/bridge-plugin": "workspace:*",
     "@binkai/core": "workspace:*",
+    "@coral-xyz/anchor": "^0.30.1",
     "@solana/web3.js": "^1.98.0",
     "axios": "^1.7.9",
-    "@coral-xyz/anchor": "^0.30.1",
     "ethers": "^6.0.0",
     "graphql-request": "5.0.0",
     "viem": "1"
