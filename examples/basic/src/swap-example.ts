@@ -25,6 +25,7 @@ import { BnbProvider } from '@binkai/rpc-provider';
 import { KyberProvider } from '@binkai/kyber-provider';
 import { AlchemyProvider } from '@binkai/alchemy-provider';
 import { HyperliquidProvider } from '@binkai/hyperliquid-provider';
+import { DodoProvider } from '@binkai/dodo-provider';
 
 // Hardcoded RPC URLs for demonstration
 const BNB_RPC = 'https://bsc-dataseed1.binance.org';
@@ -62,7 +63,7 @@ async function main() {
         },
       },
     },
-    bnb: {
+    [NetworkName.BNB]: {
       type: 'evm' as NetworkType,
       config: {
         chainId: 56,
@@ -75,7 +76,7 @@ async function main() {
         },
       },
     },
-    ethereum: {
+    [NetworkName.ETHEREUM]: {
       type: 'evm' as NetworkType,
       config: {
         chainId: 1,
@@ -212,14 +213,21 @@ async function main() {
   const okx = new OkxProvider(bnbProvider, 56);
   const jupiter = new JupiterProvider(solProvider);
   const thena = new ThenaProvider(ethProvider, 1);
-  const kyber = new KyberProvider(baseProvider, 8453 as number);
+  const kyberBNB = new KyberProvider(bnbProvider, 56);
+  const kyberBase = new KyberProvider(baseProvider, 8453);
   const hyperliquid = new HyperliquidProvider(hyperliquidProvider, ChainId.HYPERLIQUID);
+
+  const dodoBnb = new DodoProvider({
+    provider: bnbProvider,
+    chainId: ChainId.BSC,
+    apiKey: settings.get('DODO_API_KEY') || '',
+  });
 
   // Configure the plugin with supported chains
   await swapPlugin.initialize({
     defaultSlippage: 0.5,
     // defaultChain: 'bnb',
-    providers: [okx, thena, jupiter, kyber, hyperliquid],
+    providers: [okx, thena, jupiter, kyberBNB, kyberBase, hyperliquid],
     supportedChains: ['bnb', 'ethereum', 'solana', 'base', 'hyperliquid'], // These will be intersected with agent's networks
   });
 
@@ -244,16 +252,15 @@ async function main() {
   console.log('✓ Plugin registered\n');
 
   // Example 1: Buy with exact input amount on BNB Chain
-  // console.log('💱 Example 1: Buy with exact input amount all providers');
-  // const result = await agent.execute({
-  //   input: `
-  //     Buy 0.3 hype from usdc on hyperliquid chain by hyperliquid .
-  //     Use the following token addresses:
-  //       HYPE: 0x0d01dc56dcaaca66ad901c959b4011ec
-  //       USDC: 0x6d1e7cde53ba9467b783cb7c530ce054
-  //   `,
-  // });
-  // console.log('✓ Result:', result, '\n');
+  console.log('💱 Example 1: Buy with exact input amount all providers');
+  const result = await agent.execute({
+    input: `
+     Sell 0.6 USDC to BNB via dodo with 0.5% slippage on bnb chain.
+      Use the following token addresses:
+      USDC: 0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d
+    `,
+  });
+  console.log('✓ Result:', result, '\n');
 
   //  Example 2: Sell with exact output amount on Hyperliquid Chain
   // console.log('💱 Example 2: Sell with exact output amount on Hyperliquid Chain');
@@ -272,7 +279,7 @@ async function main() {
   console.log('💱 Example 3: Check my balance on base chain');
   const result = await agent.execute({
     input: `
-      Check my balance on hyperliquid chain
+      sell 0.001 bnb to usdc on bnb chain on kyber
     `,
   });
   console.log('✓ Result:', result, '\n');

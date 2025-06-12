@@ -7,41 +7,54 @@ const CONSTANTS = {
   DEFAULT_GAS_LIMIT: '350000',
   APPROVE_GAS_LIMIT: '50000',
   QUOTE_EXPIRY: 5 * 60 * 1000, // 5 minutes in milliseconds
-  KYBER_BNB_ADDRESS: EVM_NATIVE_TOKEN_ADDRESS,
-  KYBER_API_BASE: {
-    [NetworkName.BNB]: 'https://aggregator-api.kyberswap.com/bsc/',
-    [NetworkName.BASE]: 'https://aggregator-api.kyberswap.com/base/',
+  DODO_API_BASE: {
+    [NetworkName.BNB]: 'https://api.dodoex.io/route-service/developer/',
+    [NetworkName.BASE]: 'https://api.dodoex.io/route-service/developer/',
+  },
+  DODO_SPENDER: {
+    [NetworkName.BNB]: '0xa128Ba44B2738A558A1fdC06d6303d52D3Cef8c1',
+    [NetworkName.BASE]: '0xa128Ba44B2738A558A1fdC06d6303d52D3Cef8c1',
   },
 } as const;
 
-enum ChainId {
-  BSC = 56,
-  ETH = 1,
+export enum ChainId {
+  BNB = 56,
   BASE = 8453,
 }
 
+interface DodoProviderConfig {
+  apiKey: string;
+  provider: Provider;
+  chainId: ChainId;
+}
+
 const PROVIDER_NAMES = {
-  [ChainId.BSC]: 'kyber-bnb',
-  [ChainId.BASE]: 'kyber-base',
-  [ChainId.ETH]: 'kyber-ethereum',
+  [ChainId.BNB]: 'dodo-bnb',
+  [ChainId.BASE]: 'dodo-base',
 } as const;
 
-export class KyberProvider extends BaseSwapProvider {
+export class DodoProvider extends BaseSwapProvider {
   private provider: Provider;
   private chainId: ChainId;
+  private readonly apiKey: string;
   protected GAS_BUFFER: bigint = ethers.parseEther('0.0003');
 
-  constructor(provider: Provider, chainId: ChainId = ChainId.BSC) {
-    // Create a Map with BNB network and the provider
+  constructor(config: DodoProviderConfig) {
+    // Create a Map with network providers
     const providerMap = new Map<NetworkName, NetworkProvider>();
-    providerMap.set(NetworkName.BNB, provider);
-    if (chainId === ChainId.BASE) {
-      providerMap.set(NetworkName.BASE, provider);
-    }
+
+    // Always add both networks to the provider map
+    providerMap.set(NetworkName.BNB, config.provider);
+    providerMap.set(NetworkName.BASE, config.provider);
 
     super(providerMap);
-    this.provider = provider;
-    this.chainId = chainId;
+    this.provider = config.provider;
+    this.chainId = config.chainId;
+    this.apiKey = config.apiKey || process.env.DODO_API_KEY || '';
+
+    if (!this.apiKey) {
+      logger.warn('⚠️ Dodo API key not provided. Some features may not work correctly.');
+    }
   }
 
   getName(): string {
@@ -49,7 +62,7 @@ export class KyberProvider extends BaseSwapProvider {
   }
 
   getSupportedChains(): string[] {
-    return ['bnb', 'ethereum', 'base'];
+    return ['bnb', 'base'];
   }
 
   getSupportedNetworks(): NetworkName[] {
@@ -80,40 +93,39 @@ export class KyberProvider extends BaseSwapProvider {
     return tokenInfo;
   }
 
-  private async callKyberApi(
+  private async callDodoApi(
     amount: string,
     fromToken: Token,
     toToken: Token,
     userAddress: string,
+    slippage: number = 1.5,
   ) {
     const network = this.chainId === ChainId.BASE ? NetworkName.BASE : NetworkName.BNB;
-    const routePath = `api/v1/routes?tokenIn=${fromToken.address}&tokenOut=${toToken.address}&amountIn=${amount}&gasInclude=true`;
-    logger.info('🤖 Kyber Path', routePath);
-    const routeResponse = await fetch(`${CONSTANTS.KYBER_API_BASE[network]}${routePath}`);
-    const routeData = await routeResponse.json();
+    const deadline = Math.floor(Date.now() / 1000) + 1800; // 30 minutes from now
 
-    if (!routeData.data || routeData.data.length === 0) {
-      throw new Error('No swap routes available from Kyber');
+    const queryParams = new URLSearchParams({
+      apikey: this.apiKey,
+      chainId: this.chainId.toString(),
+      fromAmount: amount,
+      fromTokenAddress: fromToken.address,
+      toTokenAddress: toToken.address,
+      slippage: slippage.toString(),
+      userAddr: userAddress,
+      deadLine: deadline.toString(),
+      maxPriceImpact: '20',
+    });
+
+    const url = `${CONSTANTS.DODO_API_BASE[network]}swap?${queryParams.toString()}`;
+    logger.info('🤖 Dodo API Path:', url);
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status !== 200 || !data.data) {
+      throw new Error('Failed to get quote from Dodo: ' + (data.message || 'Unknown error'));
     }
 
-    const transactionResponse = await fetch(
-      `${CONSTANTS.KYBER_API_BASE[network]}api/v1/route/build`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          routeSummary: routeData.data.routeSummary,
-          sender: userAddress,
-          recipient: userAddress,
-          skipSimulateTx: false,
-          slippageTolerance: 200,
-        }),
-      },
-    );
-
-    return {
-      routeData: routeData.data,
-      transactionData: (await transactionResponse.json()).data,
-    };
+    return data.data;
   }
 
   private async getReverseQuote(
@@ -122,18 +134,18 @@ export class KyberProvider extends BaseSwapProvider {
     toToken: Token,
     userAddress: string,
   ): Promise<string> {
-    // Swap fromToken and toToken to get reverse quote
-    const result = await this.callKyberApi(amount, toToken, fromToken, userAddress);
-    logger.info('🚀 ~ KyberProvider ~ result:', result);
-    const outputAmount = result.transactionData.amountOut;
-    return ethers.formatUnits(outputAmount, toToken.decimals);
+    // For Dodo, we'll use a simple price calculation based on the quote
+    const result = await this.callDodoApi(amount, toToken, fromToken, userAddress);
+    const pricePerFromToken = result.resPricePerFromToken;
+    const outputAmount = Number(amount) * pricePerFromToken;
+    return outputAmount.toString();
   }
 
   async getQuote(params: SwapParams, userAddress: string): Promise<SwapQuote> {
     try {
-      // check is valid limit order
+      // Check if limit order is supported
       if (params?.limitPrice) {
-        throw new Error('Kyber does not support limit order for native token swaps');
+        throw new Error('Dodo does not support limit orders');
       }
 
       // Fetch input and output token information
@@ -144,7 +156,6 @@ export class KyberProvider extends BaseSwapProvider {
 
       let adjustedAmount = params.amount;
       if (params.type === 'input') {
-        // Use the adjustAmount method for all tokens (both native and ERC20)
         adjustedAmount = await this.adjustAmount(
           params.fromToken,
           params.amount,
@@ -153,7 +164,7 @@ export class KyberProvider extends BaseSwapProvider {
         );
 
         if (adjustedAmount !== params.amount) {
-          logger.info(`🤖 Kyber adjusted input amount from ${params.amount} to ${adjustedAmount}`);
+          logger.info(`🤖 Dodo adjusted input amount from ${params.amount} to ${adjustedAmount}`);
         }
       }
 
@@ -164,38 +175,32 @@ export class KyberProvider extends BaseSwapProvider {
       } else {
         // For output type, get reverse quote to calculate input amount
         const amountReverse = ethers.parseUnits('1', destinationToken.decimals).toString();
-
         const reverseAdjustedAmount = await this.getReverseQuote(
           amountReverse,
           sourceToken,
           destinationToken,
           userAddress,
         );
-
         const realAmount = Number(reverseAdjustedAmount) * Number(adjustedAmount);
-
         amountIn = ethers.parseUnits(realAmount.toString(), sourceToken.decimals).toString();
       }
 
-      console.log('🚀 ~ KyberProvider ~ getQuote ~ amountIn:', amountIn);
-      console.log('🚀 ~ KyberProvider ~ getQuote ~ sourceToken:', sourceToken);
-      console.log('🚀 ~ KyberProvider ~ getQuote ~ destinationToken:', destinationToken);
-      console.log('🚀 ~ KyberProvider ~ getQuote ~ userAddress:', userAddress);
       // Get swap route and transaction data
-      const { routeData, transactionData } = await this.callKyberApi(
+      const swapData = await this.callDodoApi(
         amountIn,
         sourceToken,
         destinationToken,
         userAddress,
+        params.slippage || 1.5,
       );
 
       // Create and store quote
       const swapQuote = this.createSwapQuote(
+        amountIn,
         params,
         sourceToken,
         destinationToken,
-        transactionData,
-        routeData,
+        swapData,
       );
       this.storeQuoteWithExpiry(swapQuote);
       return swapQuote;
@@ -207,13 +212,12 @@ export class KyberProvider extends BaseSwapProvider {
     }
   }
 
-  // Helper methods for better separation of concerns
   private createSwapQuote(
+    amountIn: string,
     params: SwapParams,
     sourceToken: Token,
     destinationToken: Token,
-    swapTransactionData: any,
-    routeData: any,
+    swapData: any,
   ): SwapQuote {
     const quoteId = ethers.hexlify(ethers.randomBytes(32));
 
@@ -222,20 +226,20 @@ export class KyberProvider extends BaseSwapProvider {
       network: params.network,
       fromToken: sourceToken,
       toToken: destinationToken,
-      fromAmount: ethers.formatUnits(swapTransactionData.amountIn, sourceToken.decimals),
-      toAmount: ethers.formatUnits(swapTransactionData.amountOut, destinationToken.decimals),
-      slippage: 100, // 10% default slippage
+      fromAmount: ethers.formatUnits(amountIn, sourceToken.decimals),
+      toAmount: swapData.resAmount,
+      slippage: params.slippage || 1.5,
       type: params.type,
-      priceImpact: routeData.priceImpact || 0,
-      route: ['kyber'],
+      priceImpact: swapData.priceImpact || 0,
+      route: ['dodo'],
       estimatedGas: CONSTANTS.DEFAULT_GAS_LIMIT,
       tx: {
-        to: swapTransactionData.routerAddress,
-        data: swapTransactionData.data,
-        value: swapTransactionData.transactionValue || '0',
+        to: swapData.to,
+        data: swapData.data,
+        value: swapData.value || '0',
         gasLimit: ethers.parseUnits(CONSTANTS.DEFAULT_GAS_LIMIT, 'wei'),
         network: params.network,
-        spender: swapTransactionData.routerAddress,
+        spender: CONSTANTS.DODO_SPENDER[params.network as NetworkName.BNB | NetworkName.BASE],
       },
     };
   }

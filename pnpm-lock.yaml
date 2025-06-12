@@ -57,6 +57,9 @@ importers:
       '@binkai/debridge-provider':
         specifier: workspace:*
         version: link:../../packages/providers/deBridge
+      '@binkai/dodo-provider':
+        specifier: workspace:*
+        version: link:../../packages/providers/dodo
       '@binkai/four-meme-provider':
         specifier: workspace:*
         version: link:../../packages/providers/four-meme
@@ -598,6 +601,28 @@ importers:
       viem:
         specifier: '1'
         version: 1.21.4(bufferutil@4.0.9)(typescript@5.7.3)(utf-8-validate@5.0.10)(zod@3.24.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.17.14
+      rimraf:
+        specifier: ^5.0.0
+        version: 5.0.10
+      typescript:
+        specifier: ^5.0.0
+        version: 5.7.3
+
+  packages/providers/dodo:
+    dependencies:
+      '@binkai/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@binkai/swap-plugin':
+        specifier: workspace:*
+        version: link:../../plugins/swap
+      ethers:
+        specifier: ^6.0.0
+        version: 6.13.5(bufferutil@4.0.9)(utf-8-validate@5.0.10)
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
@@ -12074,7 +12099,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.2
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.7.9(debug@4.4.0))
+      retry-axios: 2.6.0(axios@1.7.9)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -14029,7 +14054,7 @@ snapshots:
       onetime: 7.0.0
       signal-exit: 4.1.0
 
-  retry-axios@2.6.0(axios@1.7.9(debug@4.4.0)):
+  retry-axios@2.6.0(axios@1.7.9):
     dependencies:
       axios: 1.7.9(debug@4.4.0)
 
